@@ -27,7 +27,7 @@ class SEngine():
             "query": {
                 "multi_match": {
                     "query": words,
-                    "fields": ["image_fname", "en_lables", "%s_lables" % self.translated_language],
+                    "fields": ["image_fname", "en_labels", "%s_labels" % self.translated_language],
                     "operator": op
                 }
             }

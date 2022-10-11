@@ -18,7 +18,7 @@ class Tagging():
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self.google_credentials
         os.environ["GOOGLE_CLOUD_PROJECT"] = self.google_project
         from google.cloud import vision
-        vision_client = vision.Client()
+        vision_client = vision.ImageAnnotatorClient()
         # Loads the image into memory
         image = vision_client.image(content=image_binary)
         # Performs label detection on the image file
