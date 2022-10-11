@@ -4,7 +4,7 @@ import logging
 import os
 import sys
 from configparser import SafeConfigParser
-from queue import Queue
+from redisqueue import RedisQueue
 
 import magic
 from bottle import Bottle, run, route, request, default_app, HTTPResponse, response
@@ -25,7 +25,7 @@ config.read('config.ini')
 app = application = Bottle()
 
 # Consumer Queue
-queue = Queue(config)
+queue = RedisQueue(config)
 
 # Search Engine
 from searchengine import SEngine

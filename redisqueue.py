@@ -9,7 +9,7 @@ logging.debug("logging started")
 logger = logging.getLogger(__name__)
 
 
-class Queue():
+class RedisQueue():
     def __init__(self, config):
         self.redis_host = config.get('redis', 'host')
         self.redis_port = int(config.get('redis', 'port'))

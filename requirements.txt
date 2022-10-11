@@ -2,3 +2,4 @@ bottle
 python-magic
 elasticsearch
 redis
+google-cloud-vision
