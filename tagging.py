@@ -28,5 +28,6 @@ class Tagging():
             tags.append(label.description)
         return tags
 
-    def aws_rekognition():
+    def aws_rekognition(self):
         return True
+        # TODO add AWS support

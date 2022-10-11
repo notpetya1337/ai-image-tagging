@@ -4,11 +4,9 @@ import logging
 import os
 import sys
 import time
-from queue import Queue
+from redisqueue import RedisQueue
 
-from ConfigParser import SafeConfigParser
-from translate import Translater
-
+from configparser import SafeConfigParser
 from searchengine import SEngine
 from tagging import Tagging
 
@@ -28,13 +26,12 @@ config = SafeConfigParser()
 config.read('config.ini')
 
 # Queue 
-queue = Queue(config)
+queue = RedisQueue(config)
 tagging = Tagging(config)
-translater = Translater(config)
 es_engine = SEngine(config)
 # consuming forever
 while True:
-    # ensure all arrays are empy
+    # ensure all arrays are empty
     doc = {}
     tags = []
     translated_tags = []
@@ -48,10 +45,6 @@ while True:
     image_content = get_image_content(image)
     logger.info('getting tags for image=%s', image)
     tags = tagging.get_tags(image_binary=image_content)
-    if config.get('translation', 'enabled') == 'true':
-        logger.info('translating tags for image=%s', image)
-        translated_tags = translater.translate_tags(target=config.get('translation', 'target'), tags=tags)
-    # TODO remove references to translater, not needed
 
     # Prepare ElasticSearch Document
     doc['image_type'] = os.path.splitext(image)[1]
