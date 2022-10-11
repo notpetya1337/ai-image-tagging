@@ -41,7 +41,7 @@ while True:
     if not image:
         time.sleep(0.25)
         continue
-    logger.info('recieved image=%s', image)
+    logger.info('received image=%s', image)
     image_content = get_image_content(image)
     logger.info('getting tags for image=%s', image)
     tags = tagging.get_tags(image_binary=image_content)
@@ -54,10 +54,10 @@ while True:
         int(os.path.getmtime(image))
     ).strftime('%Y-%m-%d %H:%M:%S')
     doc['timestamp'] = int(time.time())
-    doc['en_lables'] = tags
+    doc['en_labels'] = tags
     if translated_tags:
         target_lang = config.get('translation', 'target')
-        doc['%s_lables' % target_lang] = translated_tags
-    logger.info('pusing all details to elasticsearch for image=%s', image)
+        doc['%s_labels' % target_lang] = translated_tags
+    logger.info('pushing all details to elasticsearch for image=%s', image)
     if not es_engine.push_to_es(doc=doc):
         queue.add_to_queue(queue_name='failed_queue', image=image)

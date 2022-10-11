@@ -9,6 +9,9 @@ from redisqueue import RedisQueue
 import magic
 from bottle import Bottle, run, route, request, default_app, HTTPResponse, response
 
+# Search Engine
+from searchengine import SEngine
+
 # logger
 logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 logging.debug("logging started")
@@ -27,8 +30,6 @@ app = application = Bottle()
 # Consumer Queue
 queue = RedisQueue(config)
 
-# Search Engine
-from searchengine import SEngine
 
 search_engine = SEngine(config)
 
