@@ -47,8 +47,7 @@ def upload_image():
             file=filename
         )
         if not os.path.exists(config.get('storage', 'imagesdir')):
-            os.makedirs(save_path)
-            # TODO currently, this creates a subfolder with the name of the uploaded image and then errors
+            os.makedirs(config.get('storage', 'imagesdir'))
         if 'image' not in magic.from_buffer(raw):
             return HTTPResponse(status=400, body=json.dumps({'error': 'file type is not allowed'}))
         with open(save_path, 'wb') as open_file:
