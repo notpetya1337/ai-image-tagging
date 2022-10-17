@@ -51,7 +51,7 @@ def upload_image():
             # TODO currently, this creates a subfolder with the name of the uploaded image and then errors
         if 'image' not in magic.from_buffer(raw):
             return HTTPResponse(status=400, body=json.dumps({'error': 'file type is not allowed'}))
-        with open(save_path, 'w') as open_file:
+        with open(save_path, 'wb') as open_file:
             open_file.write(raw)
         if queue.add_to_queue(queue_name='images', image=save_path):
             return HTTPResponse(status=200, body=json.dumps({'status': 'Image Stored'}))
