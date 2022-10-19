@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 config = SafeConfigParser()
 config.read('config.ini')
 
-# Queue 
+# Queue
 queue = RedisQueue(config)
 tagging = Tagging(config)
 es_engine = SEngine(config)
@@ -55,7 +55,5 @@ while True:
     ).strftime('%Y-%m-%d %H:%M:%S')
     doc['timestamp'] = int(time.time())
     doc['en_labels'] = tags
-    logger.info('pushing all details to elasticsearch for image=%s', image)
-    if not es_engine.push_to_es(doc=doc):
-        queue.add_to_queue(queue_name='failed_queue', image=image)
-    # TODO: fix elasticsearch unexpected argument error
+    logger.info('printing details for image=%s', image)
+    print(doc)
