@@ -34,7 +34,6 @@ while True:
     # ensure all arrays are empty
     doc = {}
     tags = []
-    translated_tags = []
 
     # get image to process
     image = queue.pop_from_queue()
