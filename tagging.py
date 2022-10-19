@@ -23,8 +23,17 @@ class Tagging():
         image = vision.Image(content=image_binary)
         # image = client.annotate_image({'content': image_binary})
         # Performs label detection on the image file
-        response = client.label_detection(image=image)
-        labels = response.label_annotations
+        responsetags = client.label_detection(image=image)
+
+        # TODO: make this work to save traffic on text recognition, maybe add face recognition
+        # response = client.annotate_image({
+        #     'image': {'source': {'image_uri': 'gs://my-test-bucket/image.jpg'}},
+        #     'features': [
+        #         {'type_': vision.Feature.Type.FACE_DETECTION},
+        #         {"type_": vision_v1.Feature.Type.LABEL_DETECTION},]
+        # })
+
+        labels = responsetags.label_annotations
         tags = []
         for label in labels:
             tags.append(label.description)
