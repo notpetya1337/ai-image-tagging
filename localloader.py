@@ -2,9 +2,13 @@ import os
 
 rootdir = './'
 # TODO: load from config
-def listdirs(rootdir):
-    for it in os.scandir(rootdir):
-        if it.is_dir():
-            print(it.path)
-            listdirs(it)
+
+
+def listdirs(folder):
+    for result in os.scandir(folder):
+        if result.is_dir():
+            print(result.path)
+            listdirs(result)
+
+
 listdirs(rootdir)
