@@ -12,8 +12,8 @@ from tagging import Tagging
 
 
 def get_image_content(image_path):
-    image = open(image_path, 'rb')
-    return image.read()
+    internalimage = open(image_path, 'rb')
+    return internalimage.read()
 
 
 # logger
