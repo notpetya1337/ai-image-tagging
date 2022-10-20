@@ -2,4 +2,5 @@
 
 ## TODO:
 Fix ElasticSearch tag storing
+
 Add OCR tagging

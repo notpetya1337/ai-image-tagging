@@ -64,9 +64,12 @@ def main():
                     image_content = get_image_content(image)
                     logger.info('getting tags for image=%s', image)
                     tags = tagging.get_tags(image_binary=image_content)
-                    print(image, tags)
+                    text = tagging.get_text(image_binary=image_content)
+                    print(image, tags, text)
                     imagetagger.update(image, "ImageDescription", tags)
+                    imagetagger.update(image, "UserComment", text)
                     imagetagger.write(image, "UniqueCameraModel", "1234")
+                    logger.info('wrote EXIF data for image=%s', image)
                     print("EXIF results: ", imagetagger.read(image, "ImageDescription"),
                           imagetagger.read(image, "UniqueCameraModel"))
         else:
