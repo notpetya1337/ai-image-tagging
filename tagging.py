@@ -39,6 +39,6 @@ class Tagging():
             tags.append(label.description)
         return tags
 
-    def aws_rekognition(self):
+    def aws_rekognition(self, image_binary):
         return True
         # TODO add AWS support
