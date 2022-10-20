@@ -2,5 +2,5 @@ bottle
 python-magic
 elasticsearch
 redis
-google-cloud-
+google-cloud-vision
 pyexif
