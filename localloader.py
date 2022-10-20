@@ -19,6 +19,7 @@ rootdir=config.get('storage','localimagedir')
 # list all subdirectories in a given folder
 def listdirs(folder):
     internallist = []
+    internallist.append(folder)
     for root, directories, files in os.walk(folder):
         for directory in directories:
             internallist.append(os.path.join(root, directory))
@@ -49,15 +50,19 @@ allfolders = listdirs(rootdir)
 def main():
     while True:
         tags = []
-        workingdir = allfolders.pop(0)
-        print(workingdir)
-        workingimages = listimages(workingdir)
-        for image in workingimages:
-            # TODO: make this open a file directly instead of copying the image
-            logger.info('opening image=%s', image)
-            image_content = get_image_content(image)
-            logger.info('getting tags for image=%s', image)
-            tags = tagging.get_tags(image_binary=image_content)
-            print(image, tags)
+        if allfolders:
+            workingdir = allfolders.pop(0)
+            workingimages = listimages(workingdir)
+            for image in workingimages:
+                # TODO: make this check if image has been processed before by EXIF tag
+                # TODO: make this open a file directly instead of copying the image
+                logger.info('opening image=%s', image)
+                image_content = get_image_content(image)
+                logger.info('getting tags for image=%s', image)
+                tags = tagging.get_tags(image_binary=image_content)
+                print(image, tags)
+        else:
+            print("No folders found", allfolders)
+            break
 
 main()
