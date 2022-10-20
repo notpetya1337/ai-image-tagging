@@ -1,15 +1,15 @@
+import logging
 import os
 import sys
 from configparser import ConfigParser
-import logging
-from tagging import Tagging
+
 import imagetagger
+from tagging import Tagging
 
 # logger
 logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 logging.debug("logging started")
 logger = logging.getLogger(__name__)
-
 
 config = ConfigParser()
 config.read('config.ini')
@@ -43,7 +43,6 @@ def get_image_content(image_path):
 
 
 # define folder and image lists globally
-allfolders = []
 imagelist = []
 tagging = Tagging(config)
 allfolders = listdirs(rootdir)
@@ -68,7 +67,8 @@ def main():
                     print(image, tags)
                     imagetagger.update(image, "ImageDescription", tags)
                     imagetagger.write(image, "UniqueCameraModel", "1234")
-                    print("EXIF results: ", imagetagger.read(image, "ImageDescription"), imagetagger.read(image, "UniqueCameraModel"))
+                    print("EXIF results: ", imagetagger.read(image, "ImageDescription"),
+                          imagetagger.read(image, "UniqueCameraModel"))
         else:
             print("No folders found", rootdir, allfolders)
             break
