@@ -71,6 +71,7 @@ def main():
                     imagetagger.write(image, "UniqueCameraModel", "1234")
                     logger.info('wrote EXIF data for image=%s', image)
                     print("EXIF results: ", imagetagger.read(image, "ImageDescription"),
+                          imagetagger.read(image, "UserComment"),
                           imagetagger.read(image, "UniqueCameraModel"))
         else:
             print("No folders found", rootdir, allfolders)
