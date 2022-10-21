@@ -1,5 +1,12 @@
 import os
+import re
 
+
+def sanitize(s):
+    n = "Empty"
+    for i in s:
+        n = i.replace("\t", "    ")
+    return re.sub(r"[^ -~]", "", n)
 
 class Tagging():
     def __init__(self, config):
@@ -13,7 +20,6 @@ class Tagging():
         elif self.tags_backend == 'aws-rekognition':
             tags = self.aws_rekognition(image_binary=image_binary)
         return tags
-
 
     def get_text(self, image_binary):
         if self.tags_backend == 'google-vision':
@@ -61,6 +67,7 @@ class Tagging():
         returntext = []
         for text in textobject:
             returntext.append(text.description)
+        returntext = sanitize(returntext)
         return returntext
 
     def aws_rekognition(self, image_binary):
