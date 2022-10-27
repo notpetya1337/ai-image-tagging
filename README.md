@@ -11,7 +11,11 @@ The Google Photos app allows you to search based on the EXIF "ImageDescription" 
 
 ## TODO:
 Fix ElasticSearch tag storing\
+Add relative image location to ElasticSearch tags\
+Store image MD5 to ElasticSearch\
+Add script to update image locations in ElasticSearch based on MD5\
 Add OCR tagging\
-Add better validation for returned OCR text\
+Add support for AWS Rekognition\
+Add better validation for returned OCR text (currently, all characters matching [^ -~] are stripped)\
 Add batch processing and/or multithreading (processing a single image currently takes 1-3 seconds)\
 Possibly add web GUI
