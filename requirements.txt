@@ -4,3 +4,4 @@ elasticsearch
 redis
 google-cloud-vision
 pyexif
+Pillow

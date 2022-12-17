@@ -133,3 +133,4 @@ inspectionProfiles/
 .idea/
 imageupload/
 config.ini
+*.db
