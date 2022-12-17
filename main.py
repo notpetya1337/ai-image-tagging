@@ -2,16 +2,10 @@ import logging
 import os
 import sys
 from configparser import ConfigParser
-
-import imagetagger
 from tagging import Tagging
 import sqlite3
-
-# import Image
 from PIL import Image
 import hashlib
-
-# import mongo client
 from mongoclient import get_database
 
 # logger
@@ -31,6 +25,7 @@ con = sqlite3.connect(sqldb)
 cur = con.cursor()
 currentdb = get_database()
 collection = currentdb[mongocollection]
+
 
 # list all subdirectories in a given folder
 def listdirs(folder):
@@ -106,15 +101,16 @@ def main():
                         "vision_text" : text,
                         "path" : image_array,
                         "subdiv" : subdiv,
-                        "timestamp": "placeholder"
-                        "is_screenshot": is_screenshot
+                        "timestamp": "placeholder",
+                        "is_screenshot" : is_screenshot
                     }
                     collection.insert_one(mongo_entry)
                 else:
-                    # add a path entry
+                    # append a path entry
+                    image_array = [image]
                     collection.update(
-                        { "md5": md5 },
-                        { "$addToSet" : {path: image_array}}
+                        {"md5": im_md5},
+                        {"$addToSet" : {"path" : image_array}}
                     );
                     logger.info('Appended path for duplicate, path is =%s', image_array)
         else:
