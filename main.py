@@ -7,6 +7,7 @@ import sqlite3
 from PIL import Image
 import hashlib
 from mongoclient import get_database
+import pymongo
 
 # logger
 logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
@@ -20,12 +21,21 @@ sqldb = config.get('storage', 'sqlitedb')
 subdiv = config.get('properties', 'subdiv')
 mongocollection = config.get('storage', 'collection')
 
-# initialize DB
+# initialize DBs
 con = sqlite3.connect(sqldb)
 cur = con.cursor()
+cur.execute("""CREATE TABLE IF NOT EXISTS media 
+(md5 TEXT NOT NULL PRIMARY KEY, 
+path TEXT, is_screenshot BOOLEAN NOT NULL CHECK (is_screenshot IN (0, 1)), subdiv TEXT);""")
+cur.execute(
+    "CREATE TABLE IF NOT EXISTS screenshots (md5 INTEGER NOT NULL PRIMARY KEY, vision_text TEXT, names TEXT);")
+logger.info('DB initialized')
+# except:
+# logger.error('Unable to initialize DB')
 currentdb = get_database()
 collection = currentdb[mongocollection]
-
+collection.create_index([('md5', pymongo.TEXT)], name='md5_index', unique=True)
+collection.create_index('vision_tags')
 
 # list all subdirectories in a given folder
 def listdirs(folder):
@@ -65,14 +75,6 @@ allfolders = listdirs(rootdir)
 
 
 def main():
-    cur.execute("""CREATE TABLE IF NOT EXISTS media 
-    (md5 TEXT NOT NULL PRIMARY KEY, 
-    path TEXT, is_screenshot BOOLEAN NOT NULL CHECK (is_screenshot IN (0, 1)), subdiv TEXT);""")
-    cur.execute(
-        "CREATE TABLE IF NOT EXISTS screenshots (md5 INTEGER NOT NULL PRIMARY KEY, vision_text TEXT, names TEXT);")
-    logger.info('DB initialized')
-    # except:
-    #     logger.error('Unable to initialize DB')
     while True:
         tags = []
         if allfolders:
@@ -81,8 +83,10 @@ def main():
             for image in workingimages:
                 # for reference, image is always going to be an absolute path
                 im_md5 = get_md5(image)
-                pathselect = cur.execute("SELECT path FROM media WHERE md5=?", (im_md5,))
-                check = pathselect.fetchone()
+                md5select = cur.execute("SELECT path FROM media WHERE md5=?", (im_md5,))
+                check = md5select.fetchone()
+                pathselect = cur.execute("SELECT path FROM media WHERE md5=? AND path=?", (im_md5, image))
+                check_path = pathselect.fetchone()
                 if check is None:
                     # check file path or config file for "screenshot", maybe use subdiv
                     is_screenshot = 0
@@ -95,24 +99,28 @@ def main():
                     print(image, tags, text)
                     image_array = [image]
                     print(image_array)
+                    cur.execute("INSERT INTO media VALUES (?,?,?,?)", (im_md5, image, is_screenshot, subdiv))
+                    con.commit()
                     mongo_entry = {
                         "md5" : im_md5,
                         "vision_tags" : tags,
                         "vision_text" : text,
                         "path" : image_array,
                         "subdiv" : subdiv,
-                        "timestamp": "placeholder",
                         "is_screenshot" : is_screenshot
                     }
+                    # TODO: make this check and recover from a "unique key already exists" rather than crashing, maybe by checking mongoDB before writing
                     collection.insert_one(mongo_entry)
-                else:
+                if check_path is None:
+
                     # append a path entry
-                    image_array = [image]
-                    collection.update(
+                    collection.update_one(
                         {"md5": im_md5},
-                        {"$addToSet" : {"path" : image_array}}
-                    );
-                    logger.info('Appended path for duplicate, path is =%s', image_array)
+                        {"$addToSet" : {"path" : image}}
+                    )
+                    logger.info('Appended path for duplicate, path is =%s', image)
+                else:
+                    continue
         else:
             print("No folders found", rootdir, allfolders)
             break
