@@ -3,7 +3,7 @@ from configparser import ConfigParser
 config = ConfigParser()
 config.read('config.ini')
 connectstring = config.get('storage', 'connectionstring')
-mongodbname = config.get('storage', 'dbname')
+mongodbname = config.get('storage', 'mongodbname')
 
 def get_database():
     # Provide the mongodb atlas url to connect python to mongodb using pymongo
