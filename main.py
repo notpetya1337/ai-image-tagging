@@ -19,7 +19,7 @@ config.read('config.ini')
 rootdir = config.get('storage', 'localimagedir')
 sqldb = config.get('storage', 'sqlitedb')
 subdiv = config.get('properties', 'subdiv')
-mongocollection = config.get('storage', 'collection')
+mongocollection = config.get('storage', 'mongocollection')
 
 # initialize DBs
 con = sqlite3.connect(sqldb)
