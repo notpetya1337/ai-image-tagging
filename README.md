@@ -1,9 +1,9 @@
 # Google Cloud tagging for images
 
 ## Functionality:
-This script takes images from a local folder, processes the images through Google's Vision AI, retrieves AI-generated labels and OCRed text, and writes it to EXIF tags.
+This script takes images from a local folder, checks the MD5 against a local database, processes the images through Google's Vision AI, retrieves AI-generated labels and OCRed text, and writes it to EXIF tags.
 
-Tags and lightly OCRed text are written to a SQLite DB that uses image MD5 as the unique key.\
+Tags and lightly OCRed text are written to MongoDB.\
 Google Vision currently allows 1000 free requests per month and charges $1.50 per 1000 requests afterward.
 
 ## Use case:

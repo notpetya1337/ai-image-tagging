@@ -5,3 +5,4 @@ redis
 google-cloud-vision
 pyexif
 Pillow
+pymongo[srv]
