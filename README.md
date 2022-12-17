@@ -10,7 +10,11 @@ Google Vision currently allows 1000 free requests per month and charges $1.50 pe
 The Google Photos app allows you to search based on the EXIF "ImageDescription" field. You can also use ElasticSearch as an image search backend, possibly with a custom app to show image previews.
 
 ## TODO:
+Add relative image location to ElasticSearch tags\
+Store image MD5 to ElasticSearch\
+Add script to update image locations in ElasticSearch based on MD5\
 Add OCR tagging\
-Add better validation for returned OCR text\
+Add support for AWS Rekognition\
+Add better validation for returned OCR text (currently, all characters matching [^ -~] are stripped)\
 Add batch processing and/or multithreading (processing a single image currently takes 1-3 seconds)\
 Possibly add web GUI
