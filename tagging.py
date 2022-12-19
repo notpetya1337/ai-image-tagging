@@ -1,5 +1,8 @@
 import os
 import re
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def sanitize(s):
@@ -25,18 +28,16 @@ class Tagging():
     def get_text(self, image_binary):
         if self.tags_backend == 'google-vision':
             text = self.google_vision_light_ocr(image_binary=image_binary)
-        elif self.tags_backend == 'google-vision':
-            text = self.google_vision_heavy_ocr(image_binary=image_binary)
         elif self.tags_backend == 'aws-rekognition':
             text = self.aws_rekognition(image_binary=image_binary)
         return text
 
+    # TODO: this doesn't work yet
     def get_ocr_text(self, image_binary):
-        # TODO: this doesn't work yet
         if self.tags_backend == 'google-vision':
             ocrtext = self.google_vision_heavy_ocr(image_binary=image_binary)
         elif self.tags_backend == 'aws-rekognition':
-            text = self.aws_rekognition(image_binary=image_binary)
+            ocrtext = self.aws_rekognition(image_binary=image_binary)
         return ocrtext
 
     def google_vision_labels(self, image_binary):
@@ -78,11 +79,14 @@ class Tagging():
         returntext = []
         for text in textobject:
             returntext.append(text.description)
-        # returntext = sanitize(returntext)
+        if not returntext:
+            logger.info("Text not found in image, appending placeholder")
+            returntext.append("No text detected.")
         return returntext
 
+    # TODO: this doesn't work yet
     def google_vision_heavy_ocr(self, image_binary):
-        # TODO: this doesn't work yet
+
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self.google_credentials
         os.environ["GOOGLE_CLOUD_PROJECT"] = self.google_project
         from google.cloud import vision

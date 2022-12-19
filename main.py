@@ -9,26 +9,28 @@ import hashlib
 from mongoclient import get_database
 import pymongo
 
-# logger
+# initialize logger
 logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 logging.getLogger('PIL').setLevel(logging.ERROR)
 logging.debug("logging started")
 logger = logging.getLogger(__name__)
 
+# read config
 config = ConfigParser()
 config.read('config.ini')
 subdiv = config.get('properties', 'subdiv')
 rootdir = config.get('divs', subdiv)
 sqldb = config.get('storage', 'sqlitedb')
 mongocollection = config.get('storage', 'mongocollection')
-
+mongoscreenshotcollection = config.get('storage', 'mongoscreenshotcollection')
 
 # initialize DBs
+# TODO: turn these into functions and call them
 con = sqlite3.connect(sqldb)
 cur = con.cursor()
 cur.execute("""CREATE TABLE IF NOT EXISTS media 
     (md5 TEXT NOT NULL, 
-    path TEXT, is_screenshot BOOLEAN NOT NULL CHECK (is_screenshot IN (0, 1)), subdiv TEXT);""")
+    relativepath TEXT, is_screenshot BOOLEAN NOT NULL CHECK (is_screenshot IN (0, 1)), subdiv TEXT);""")
 cur.execute(
     "CREATE TABLE IF NOT EXISTS screenshots (md5 INTEGER NOT NULL PRIMARY KEY, vision_text TEXT, names TEXT);")
 cur.execute("CREATE INDEX IF NOT EXISTS md5_idx ON media (md5);")
@@ -38,8 +40,10 @@ logger.info('DB initialized')
 # logger.error('Unable to initialize DB')
 currentdb = get_database()
 collection = currentdb[mongocollection]
+screenshotcollection = currentdb[mongoscreenshotcollection]
 collection.create_index([('md5', pymongo.TEXT)], name='md5_index', unique=True)
 collection.create_index('vision_tags')
+screenshotcollection.create_index([('md5', pymongo.TEXT)], name='md5_index', unique=True)
 
 
 # list all subdirectories in a given folder
@@ -69,12 +73,8 @@ def get_image_content(image_path):
 
 
 def get_md5(image_path):
-    # using try/catch to keep PIL debug logs from spamming console, fix this later
-    try:
-        im = Image.open(image_path)
-        return hashlib.md5(im.tobytes()).hexdigest()
-    except:
-        logger.error("Failed to get hash of =%s", image_path)
+    im = Image.open(image_path)
+    return hashlib.md5(im.tobytes()).hexdigest()
 
 
 # define folder and image lists globally
@@ -83,63 +83,91 @@ tagging = Tagging(config)
 allfolders = listdirs(rootdir)
 
 
+def create_mongoentry(image_content, im_md5, image_array, relpath_array, is_screenshot):
+
+    if is_screenshot == 1:
+        text = tagging.get_text(image_binary=image_content)
+        mongo_entry = {
+            "md5": im_md5,
+            "vision_tags": [],
+            "vision_text": text[0],
+            "path": image_array,
+            "subdiv": subdiv,
+            "relativepath": relpath_array,
+            "is_screenshot": is_screenshot
+        }
+    elif is_screenshot == 0:
+        tags = tagging.get_tags(image_binary=image_content)
+        text = tagging.get_text(image_binary=image_content)
+        mongo_entry = {
+            "md5": im_md5,
+            "vision_tags": tags,
+            "vision_text": text[0],
+            "path": image_array,
+            "subdiv": subdiv,
+            "relativepath": relpath_array,
+            "is_screenshot": is_screenshot
+        }
+    logger.info("Generated MongoDB entry: %s", mongo_entry)
+    return mongo_entry
+
+
 def main():
     while True:
         if allfolders:
             workingdir = allfolders.pop(0)
             workingimages = listimages(workingdir)
             for imagepath in workingimages:
+                # TODO: check file path and name for "screenshot", update is_screenshot
+                if subdiv == "screenshots":
+                    is_screenshot = 1
+                    workingcollection = screenshotcollection
+                else:
+                    is_screenshot = 0
+                    workingcollection = mongocollection
                 im_md5 = get_md5(imagepath)
                 relpath = os.path.relpath(imagepath, rootdir)
-                md5select = cur.execute("SELECT path FROM media WHERE md5=?", (im_md5,))
-                sqlcheck = md5select.fetchone()
-                pathselect = cur.execute("SELECT path FROM media WHERE md5=? AND path=?", (im_md5, relpath))
-                check_path = pathselect.fetchone()
-                if sqlcheck is None:
-                    # TODO: check file path or config file for "screenshot", maybe use subdiv
-                    is_screenshot = 0
-                    logger.info('=%s MD5 is not in SQLite database', imagepath)
-                    logger.info('opening image=%s', imagepath)
-                    image_content = get_image_content(imagepath)
-                    logger.info('getting tags for image=%s', imagepath)
-                    tags = tagging.get_tags(image_binary=image_content)
-                    text = tagging.get_text(image_binary=image_content)
-                    print(imagepath, relpath, tags, text)
-                    image_array = [imagepath]
-                    relpath_array = [relpath]
-                    print(image_array)
-                    cur.execute("INSERT INTO media VALUES (?,?,?,?)", (im_md5, relpath, is_screenshot, subdiv))
-                    con.commit()
-                    mongo_entry = {
-                        "md5": im_md5,
-                        "vision_tags": tags,
-                        "vision_text": text[0],
-                        "path": image_array,
-                        "subdiv": subdiv,
-                        "relativepath": relpath_array,
-                        "is_screenshot": is_screenshot
-                    }
-                    mongomd5check = collection.find_one({"md5": im_md5}, {"md5": 1})
-                    if mongomd5check is None:
-                        collection.insert_one(mongo_entry)
+                md5select = cur.execute("SELECT relativepath FROM media WHERE md5=?", (im_md5,))
+                md5check = md5select.fetchone()
+                pathselect = cur.execute("SELECT relativepath FROM media WHERE md5=? AND relativepath=?", (im_md5, relpath))
+                pathcheck = pathselect.fetchone()
+                if pathcheck is None:  # if MD5 and path aren't in SQLite
+                    # TODO: if-else isn't the best way to do this
+                    if md5check is None:  # if MD5 is not in SQLite
+                        if workingcollection.find_one({"md5": im_md5}, {"md5": 1}) is None:  # if MD5 is not in MongoDB
+                            image_content = get_image_content(imagepath)
+                            imagepath_array = [imagepath]
+                            relpath_array = [relpath]
+                            mongo_entry = create_mongoentry(image_content, im_md5, imagepath_array, relpath_array, is_screenshot)
+                            workingcollection.insert_one(mongo_entry)
+                            cur.execute("INSERT INTO media VALUES (?,?,?,?)", (im_md5, relpath, is_screenshot, subdiv))
+                            con.commit()
+                            logger.info("Added new entry in MongoDB and SQLite for image %s", imagepath)
+                            continue
+                        else:  # if MD5 is in MongoDB
+                            if workingcollection.find_one({"md5": im_md5, "relativepath": relpath},
+                                                   {"md5": 1, "relativepath": 1}) is None:  # if path is not in MongoDB
+                                workingcollection.update_one({"md5": im_md5},
+                                                      {"$addToSet": {"path": imagepath, "relativepath": relpath}})
+                                cur.execute("INSERT INTO media VALUES (?,?,?,?)",
+                                            (im_md5, relpath, is_screenshot, subdiv))
+                                con.commit()
+                                logger.info("Added new entry in MongoDB and SQLite for duplicate path %s", imagepath)
+                            else:  # if path is in MongoDB
+                                logger.warning("Image %s is in MongoDB but not SQLite", imagepath)
+                                cur.execute("INSERT INTO media VALUES (?,?,?,?)",
+                                            (im_md5, relpath, is_screenshot, subdiv))
+                                con.commit()
+                else:  # if image and path are in SQLite, Mongo sanity checks to avoid silent corruption
+                    if workingcollection.find_one({"md5": im_md5, "relativepath": relpath},
+                                           {"md5": 1, "relativepath": 1}) is None:
+                        logger.warning("Image %s is in SQLite but not MongoDB.", imagepath)
+                        continue
                     else:
-                        logger.error("The hash of =%s is already in MongoDB. Your local SQLite database may not be correct.", imagepath)
-                        # TODO: this may not be a good idea
-                        cur.execute("INSERT INTO media VALUES (?,?,?,?)", (im_md5, relpath, is_screenshot, subdiv))
-                        con.commit()
-                if check_path is None:
-                    # append a path entry
-                    # TODO: check MongoDB to see if path exists in any path entry matching that MD5
-                    collection.update_one(
-                        {"md5": im_md5},
-                        {"$addToSet": {"path": imagepath, "relpath": relpath}}
-                    )
-                    logger.info('Appended path for duplicate, path is =%s', imagepath)
-                else:
-                    logger.info('=%s is already in MongoDB and SQLite with this path', imagepath)
-                    continue
+                        logger.info('Image %s is already in MongoDB and SQLite with this path', imagepath)
+                        continue
         else:
-            print("No folders found", rootdir, allfolders)
+            logger.error("No folders found. Root folder: %s Folder list: %s", rootdir, allfolders)
             break
 
 
