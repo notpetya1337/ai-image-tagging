@@ -124,7 +124,7 @@ def main():
                     workingcollection = screenshotcollection
                 else:
                     is_screenshot = 0
-                    workingcollection = mongocollection
+                    workingcollection = collection
                 im_md5 = get_md5(imagepath)
                 relpath = os.path.relpath(imagepath, rootdir)
                 md5select = cur.execute("SELECT relativepath FROM media WHERE md5=?", (im_md5,))
