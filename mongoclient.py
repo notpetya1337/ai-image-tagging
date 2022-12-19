@@ -5,6 +5,7 @@ config.read('config.ini')
 connectstring = config.get('storage', 'connectionstring')
 mongodbname = config.get('storage', 'mongodbname')
 
+
 def get_database():
     # Provide the mongodb atlas url to connect python to mongodb using pymongo
     # CONNECTION_STRING = "mongodb+srv://user:pass@cluster.mongodb.net/myFirstDatabase"

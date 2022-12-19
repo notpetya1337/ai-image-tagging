@@ -4,6 +4,7 @@ from pyexif import pyexif
 # Warning: [minor] Ignored empty rdf:Bag list for Iptc4xmpExt:LocationCreated
 # Error: [minor] IFD0 pointer references previous IFD0 directory
 
+
 def read(path, tag):
     metadata = pyexif.ExifEditor(path)
     return metadata.getTag(tag)
