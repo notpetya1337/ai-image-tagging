@@ -73,9 +73,11 @@ def get_image_content(image_path):
 
 
 def get_md5(image_path):
-    im = Image.open(image_path)
-    return hashlib.md5(im.tobytes()).hexdigest()
-
+    try:
+        im = Image.open(image_path)
+        return hashlib.md5(im.tobytes()).hexdigest()
+    except OSError:
+        return "corrupt"
 
 # define folder and image lists globally
 imagelist = []
