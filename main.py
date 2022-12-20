@@ -154,13 +154,32 @@ def main():
                                 cur.execute("INSERT INTO media VALUES (?,?,?,?)",
                                             (im_md5, relpath, is_screenshot, subdiv))
                                 con.commit()
-                                logger.info("Added new entry in MongoDB and SQLite for duplicate path %s", imagepath)
+                                logger.info("Added path in MongoDB and SQLite for duplicate image %s", imagepath)
+                                continue
                             else:  # if path is in MongoDB
                                 logger.warning("Image %s is in MongoDB but not SQLite", imagepath)
                                 cur.execute("INSERT INTO media VALUES (?,?,?,?)",
                                             (im_md5, relpath, is_screenshot, subdiv))
                                 con.commit()
-                else:  # if image and path are in SQLite, Mongo sanity checks to avoid silent corruption
+                                continue
+                    else:  # if MD5 but not path is in SQLite
+                        if workingcollection.find_one({"md5": im_md5, "relativepath": relpath},
+                                                      {"md5": 1,
+                                                       "relativepath": 1}) is None:  # if path is not in MongoDB
+                            workingcollection.update_one({"md5": im_md5},
+                                                         {"$addToSet": {"path": imagepath, "relativepath": relpath}})
+                            cur.execute("INSERT INTO media VALUES (?,?,?,?)",
+                                        (im_md5, relpath, is_screenshot, subdiv))
+                            con.commit()
+                            logger.info("Added new entry in MongoDB and SQLite for duplicate path %s", imagepath)
+                            continue
+                        else:  # if path is in Mongo but not SQL
+                            logger.warning("Path for duplicate image %s is in Mongo but not SQL")
+                            cur.execute("INSERT INTO media VALUES (?,?,?,?)",
+                                        (im_md5, relpath, is_screenshot, subdiv))
+                            con.commit()
+                            continue
+                else:  # if image and path are in SQLite, check Mongo to avoid silent corruption
                     if workingcollection.find_one({"md5": im_md5, "relativepath": relpath},
                                            {"md5": 1, "relativepath": 1}) is None:
                         logger.warning("Image %s is in SQLite but not MongoDB.", imagepath)
