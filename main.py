@@ -30,6 +30,9 @@ mongoscreenshotcollection = config.get('storage', 'mongoscreenshotcollection')
 mongodownloadscollection = config.get('storage', 'mongodownloadscollection')
 mongoartcollection = config.get('storage', 'mongoartcollection')
 mongovideocollection = config.get('storage', 'mongovideocollection')
+process_videos = config.getboolean('storage', 'process_videos')
+process_images = config.getboolean('storage', 'process_images')
+check_mongo = config.getboolean('storage', 'check_mongo')
 
 # initialize DBs
 # TODO: turn these into functions and call them
@@ -75,6 +78,9 @@ def listdirs(folder):
 def listimages(subfolder):
     imageextensions = (".png", ".jpg", ".gif", ".jpeg")
     internallist = []
+    if not process_images:
+        logger.warning("Not processing images")
+        return internallist
     for file in os.listdir(subfolder):
         if file.endswith(imageextensions):
             imagepath = os.path.join(subfolder, file)
@@ -83,10 +89,13 @@ def listimages(subfolder):
 
 
 def listvideos(subfolder):
-    imageextensions = (".mp4", ".webm", ".mov", ".mkv")
+    videoextensions = (".mp4", ".webm", ".mov", ".mkv")
     internallist = []
+    if not process_videos:
+        logger.warning("Not processing videos")
+        return internallist
     for file in os.listdir(subfolder):
-        if file.endswith(imageextensions):
+        if file.endswith(videoextensions):
             videopath = os.path.join(subfolder, file)
             internallist.append(videopath)
     return internallist
@@ -192,12 +201,8 @@ def main():
 
 #######################################################################################################################
             for videopath in workingvideos:
-                if 1 == 0:
-                    is_screenshot = 0
-                    workingcollection = videocollection
-                else:
-                    is_screenshot = 0
-                    workingcollection = videocollection
+                is_screenshot = 0
+                workingcollection = videocollection
                 video_md5 = get_video_md5(videopath)  # TODO: find a better way to identify unique videos
                 relpath = os.path.relpath(videopath, rootdir)
                 md5select = cur.execute("SELECT relativepath FROM media WHERE md5=?", (video_md5,))
@@ -209,16 +214,21 @@ def main():
                     # TODO: if-else isn't the best way to do this
                     if md5check is None:  # if MD5 is not in SQLite
                         if workingcollection.find_one({"md5": video_md5}, {"md5": 1}) is None:  # if MD5 is not in Mongo
-                            logger.info("Processing video %s", relpath)
-                            video_content = get_video_content(videopath)
-                            videopath_array = [videopath]
-                            relpath_array = [relpath]
-                            mongo_entry = create_mongovideoentry(video_content, video_md5, videopath_array, relpath_array)
-                            workingcollection.insert_one(mongo_entry)
-                            cur.execute("INSERT INTO media VALUES (?,?,?,?)", (video_md5, relpath, is_screenshot, subdiv))
-                            con.commit()
-                            logger.info("Added new entry in MongoDB and SQLite for image %s \n", videopath)
-                            continue
+                            try:
+                                logger.info("Processing video %s", relpath)
+                                video_content = get_video_content(videopath)
+                                videopath_array = [videopath]
+                                relpath_array = [relpath]
+                                mongo_entry = create_mongovideoentry(video_content, video_md5, videopath_array, relpath_array)
+                                logger.info("Generated MongoDB entry: %s", mongo_entry)
+                                workingcollection.insert_one(mongo_entry)
+                                cur.execute("INSERT INTO media VALUES (?,?,?,?)", (video_md5, relpath, is_screenshot, subdiv))
+                                con.commit()
+                                logger.info("Added new entry in MongoDB and SQLite for video %s \n", videopath)
+                                continue
+                            except OSError as e:
+                                logger.error("Network error %s processing %s", e, relpath)
+                                continue
                         else:  # if MD5 is in MongoDB
                             if workingcollection.find_one({"md5": video_md5, "relativepath": relpath},
                                                           {"md5": 1,
