@@ -219,10 +219,12 @@ def main():
                                 video_content = get_video_content(videopath)
                                 videopath_array = [videopath]
                                 relpath_array = [relpath]
-                                mongo_entry = create_mongovideoentry(video_content, video_md5, videopath_array, relpath_array)
+                                mongo_entry = create_mongovideoentry(video_content, video_md5, videopath_array,
+                                                                     relpath_array)
                                 logger.info("Generated MongoDB entry: %s", mongo_entry)
                                 workingcollection.insert_one(mongo_entry)
-                                cur.execute("INSERT INTO media VALUES (?,?,?,?)", (video_md5, relpath, is_screenshot, subdiv))
+                                cur.execute("INSERT INTO media VALUES (?,?,?,?)", (video_md5, relpath, is_screenshot,
+                                                                                   subdiv))
                                 con.commit()
                                 logger.info("Added new entry in MongoDB and SQLite for video %s \n", videopath)
                                 continue
@@ -273,7 +275,7 @@ def main():
                         logger.info('Image %s is already in MongoDB and SQLite with this path', videopath)
                         continue
 
-###########################################################################################################################
+#######################################################################################################################
 
             for imagepath in workingimages:
                 imagecount += 1
@@ -294,7 +296,8 @@ def main():
                 relpath = os.path.relpath(imagepath, rootdir)
                 md5select = cur.execute("SELECT relativepath FROM media WHERE md5=?", (im_md5,))
                 md5check = md5select.fetchone()
-                pathselect = cur.execute("SELECT relativepath FROM media WHERE md5=? AND relativepath=?", (im_md5, relpath))
+                pathselect = cur.execute("SELECT relativepath FROM media WHERE md5=? AND relativepath=?", (im_md5,
+                                                                                                           relpath))
                 pathcheck = pathselect.fetchone()
                 if pathcheck is None:  # if MD5 and path aren't in SQLite
                     # TODO: if-else isn't the best way to do this
@@ -303,7 +306,8 @@ def main():
                             image_content = get_image_content(imagepath)
                             imagepath_array = [imagepath]
                             relpath_array = [relpath]
-                            mongo_entry = create_mongoimageentry(image_content, im_md5, imagepath_array, relpath_array, is_screenshot)
+                            mongo_entry = create_mongoimageentry(image_content, im_md5, imagepath_array, relpath_array,
+                                                                 is_screenshot)
                             workingcollection.insert_one(mongo_entry)
                             cur.execute("INSERT INTO media VALUES (?,?,?,?)", (im_md5, relpath, is_screenshot, subdiv))
                             con.commit()

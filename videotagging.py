@@ -1,10 +1,7 @@
-import argparse
 import io
 import os
-from collections import namedtuple
 from configparser import ConfigParser
 from google.cloud import videointelligence
-import typing
 
 # read config
 config = ConfigParser()
@@ -29,8 +26,8 @@ class VideoData:
         video_client = videointelligence.VideoIntelligenceServiceClient()
         features = [videointelligence.Feature.LABEL_DETECTION, videointelligence.Feature.TEXT_DETECTION,
                     videointelligence.Feature.SPEECH_TRANSCRIPTION]
-        config = videointelligence.SpeechTranscriptionConfig(language_code="en-US", enable_automatic_punctuation=True)
-        video_context = videointelligence.VideoContext(speech_transcription_config=config)
+        vision_config = videointelligence.SpeechTranscriptionConfig(language_code="en-US", enable_automatic_punctuation=True)
+        video_context = videointelligence.VideoContext(speech_transcription_config=vision_config)
         operation = video_client.annotate_video(
             request={"features": features, "input_content": video_binary, "video_context": video_context}
         )
@@ -42,11 +39,9 @@ class VideoData:
             for speech_transcription in annotation_result.speech_transcriptions:
                 for alternative in speech_transcription.alternatives:
                     self.transcripts.append(alternative.transcript)
-
         for r in result.annotation_results:
             for text_annotation in r.text_annotations:
                 self.text.append(text_annotation.text)
-
         for r in result.annotation_results:
             shot_labels = r.shot_label_annotations
             for i, shot_label in enumerate(shot_labels):
@@ -58,6 +53,7 @@ class VideoData:
 subdiv = "placeholder"
 vid_md5 = "placeholder"
 relpath_array = "placeholder"
+
 
 def main():
     with io.open(path, "rb") as movie:
@@ -75,6 +71,7 @@ def main():
             "relativepath": relpath_array,
         }
     print(mongo_entry)
+
 
 if __name__ == "__main__":
     main()

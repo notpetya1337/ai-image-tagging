@@ -10,7 +10,6 @@ from PIL import Image
 import hashlib
 from mongoclient import get_database
 import pymongo
-from videotagging import VideoData
 from bson.json_util import dumps, loads
 
 import exiftagger
@@ -76,7 +75,7 @@ def listimages(subfolder):
 
 
 def listvideos(subfolder):
-    videoextensions = (".mp4", ".mov", ".mkv") # ".webm",
+    videoextensions = (".mp4", ".mov", ".mkv", ".webm")  # ".webm",
     internallist = []
     if not process_videos:
         logger.info("Not processing videos")
@@ -154,8 +153,6 @@ def main():
                 workingcollection = collection
             for imagepath in workingimages:
                 im_md5 = get_md5(imagepath)
-                relpath = os.path.relpath(imagepath, rootdir)
-
                 tags_mongo = []
                 while not tags_mongo:
                     try:

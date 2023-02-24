@@ -12,7 +12,7 @@ def sanitize(s):
     return re.sub(r"[^ -~]", "", n)
 
 
-class Tagging():
+class Tagging:
     def __init__(self, config):
         self.google_credentials = config.get('image-recognition', 'google-credentials')
         self.google_project = config.get('image-recognition', 'google-project')
