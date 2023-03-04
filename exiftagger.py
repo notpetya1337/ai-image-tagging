@@ -1,6 +1,7 @@
 from pyexif import pyexif
 import logging
 import sys
+from pathlib import Path
 
 # initialize logger
 logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
@@ -27,10 +28,19 @@ def write(path, tag, data):
         metadata.setTag(tag, data)
     except RuntimeError as e:
         logger.error("Error writing tags to image %s with error %s", path, e)
+        if "Not a valid PNG (looks more like a JPEG)" in str(e):
+            logger.warning("Renaming image %s to .jpg", path)
+            libpath = Path(path)
+            libpath.rename(libpath.with_suffix('.jpg'))
+        if "Not a valid JPG (looks more like a PNG)" in str(e):
+            logger.warning("Renaming image %s to .png", path)
+            libpath = Path(path)
+            libpath.rename(libpath.with_suffix('.png'))
     except UnicodeDecodeError as e:
         logger.error("Error decoding image %s with error %s", path, e)
     except FileNotFoundError as e:
-        logger.error("Mucho texto (FileNotFound, most likely too much text) for image %s with error %s and tags %s", path, e, tag)
+        logger.error("Mucho texto (FileNotFound, most likely too much text) for image %s with error %s and tags %s",
+                     path, e, tag)
 
 
 def update(path, tag, data):
