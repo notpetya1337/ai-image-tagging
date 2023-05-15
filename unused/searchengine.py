@@ -1,7 +1,7 @@
 from elasticsearch import Elasticsearch
 
 
-class SEngine():
+class SEngine:
     def __init__(self, config):
         self.elasticsearch_hosts = config.get('elasticsearch', 'hosts')
         self.elasticsearch_index = config.get('elasticsearch', 'index')
