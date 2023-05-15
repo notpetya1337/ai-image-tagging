@@ -11,6 +11,8 @@ import hashlib
 from mongoclient import get_database
 import pymongo
 from bson.json_util import dumps, loads
+import subprocess
+import re
 
 import exiftagger
 
@@ -62,7 +64,7 @@ def listdirs(folder):
 
 # list all images in a given folder
 def listimages(subfolder):
-    imageextensions = (".png", ".jpg", ".gif", ".jpeg")
+    imageextensions = (".png", ".jpg", ".gif", ".jpeg", ".webp")
     internallist = []
     if not process_images:
         logger.info("Not processing images")
@@ -122,6 +124,20 @@ def get_video_md5(video_path, blocksize=2**20):
         return "corrupt"
     except SyntaxError:
         return "corrupt"
+
+
+def get_video_content_md5(video_path):
+    try:
+        process = subprocess.Popen('cmd /c ffmpeg.exe -i "{vpath}" -map 0:v -f md5 -'.format(vpath=video_path),
+                                   shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out, err = process.communicate()
+        md5list = re.findall(r"MD5=([a-fA-F\d]{32})", str(out))
+        logger.info("Got content MD5 for video %s: %s", video_path, md5list)
+        md5 = md5list[0]
+    except Exception as e:
+        logger.error("Unhandled exception getting MD5 for path %s with ffmpeg: %s", video_path, e)
+        md5 = "corrupt"
+    return md5
 
 
 # define folder and image lists globally
@@ -192,9 +208,13 @@ def main():
             for videopath in workingvideos:
                 is_screenshot = 0
                 workingcollection = videocollection
-                video_md5 = get_video_md5(videopath)
-                tags = dumps(workingcollection.find_one({"md5": video_md5}, {"vision_tags": 1, "_id": 0}))
-                text_array = loads(dumps(workingcollection.find_one({"md5": video_md5}, {"vision_text": 1, "_id": 0})))
+                video_content_md5 = get_video_content_md5(videopath)
+                try:
+                    tags = dumps(workingcollection.find_one({"content_md5": video_content_md5}, {"vision_tags": 1, "_id": 0}))
+                except (pymongo.errors.ServerSelectionTimeoutError, pymongo.errors.AutoReconnect) as e:
+                    logger.warning("Connection error: %s", e)
+                    time.sleep(10)
+                text_array = loads(dumps(workingcollection.find_one({"md5": video_content_md5}, {"vision_text": 1, "_id": 0})))
                 tagsjson = loads(tags)
                 logger.info("Processing video %s", videopath)
                 if tagsjson:
@@ -210,7 +230,7 @@ def main():
                         logger.info("Writing text")
                         exiftagger.write(videopath, "Title", text_list)
                 else:
-                    logger.warning("No metadata found in MongoDB for video %s", videopath)
+                    logger.warning("No metadata found in MongoDB for video %s with md5 %s", videopath, video_content_md5)
                     videocount += 1
 
         else:

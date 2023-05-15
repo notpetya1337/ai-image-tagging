@@ -12,6 +12,8 @@ import hashlib
 from mongoclient import get_database
 import pymongo
 from videotagging import VideoData
+import subprocess
+import re
 
 # initialize logger
 logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
@@ -61,7 +63,8 @@ downloadcollection.create_index([('md5', pymongo.TEXT)], name='md5_index', uniqu
 downloadcollection.create_index('vision_tags')
 artcollection.create_index([('md5', pymongo.TEXT)], name='md5_index', unique=True)
 artcollection.create_index('vision_tags')
-videocollection.create_index([('md5', pymongo.TEXT)], name='md5_index', unique=True)
+#videocollection.create_index([('content_md5', pymongo.TEXT)], name='content_md5_index', unique=True)
+videocollection.create_index('md5')
 videocollection.create_index('vision_tags')
 
 
@@ -76,7 +79,7 @@ def listdirs(folder):
 
 # list all images in a given folder
 def listimages(subfolder):
-    imageextensions = (".png", ".jpg", ".gif", ".jpeg")
+    imageextensions = (".png", ".jpg", ".gif", ".jpeg", ".webp")
     internallist = []
     if not process_images:
         logger.warning("Not processing images")
@@ -137,6 +140,19 @@ def get_video_md5(video_path, blocksize=2**20):
     except SyntaxError:
         return "corrupt"
 
+def get_video_content_md5(video_path):
+    try:
+        process = subprocess.Popen('cmd /c ffmpeg.exe -i "{vpath}" -map 0:v -f md5 -'.format(vpath=video_path),
+                                   shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out, err = process.communicate()
+        md5list = re.findall(r"MD5=([a-fA-F\d]{32})", str(out))
+        logger.info("Got content MD5 for video %s: %s", video_path, md5list)
+        md5 = md5list[0]
+    except Exception as e:
+        logger.error("Unhandled exception getting MD5 for path %s with ffmpeg: %s", video_path, e)
+        md5 = "corrupt"
+    return md5
+
 
 # define folder and image lists globally
 imagelist = []
@@ -175,11 +191,12 @@ def create_mongoimageentry(image_content, im_md5, image_array, relpath_array, is
     return mongo_entry
 
 
-def create_mongovideoentry(video_content, video_md5, vidpath_array, relpath_array):
+def create_mongovideoentry(video_content, video_md5, video_content_md5, vidpath_array, relpath_array):
     videoobj = VideoData()
     videoobj.video_vision_all(video_content)
     mongo_entry = {
         "md5": video_md5,
+        "content_md5": video_content_md5,
         "vision_tags": videoobj.labels,
         "vision_text": videoobj.text,
         "vision_transcript": videoobj.transcripts,
@@ -204,26 +221,33 @@ def main():
                 is_screenshot = 0
                 workingcollection = videocollection
                 video_md5 = get_video_md5(videopath)  # TODO: find a better way to identify unique videos
+                video_content_md5 = str(get_video_content_md5(videopath))
                 relpath = os.path.relpath(videopath, rootdir)
-                md5select = cur.execute("SELECT relativepath FROM media WHERE md5=?", (video_md5,))
+                md5select = cur.execute("SELECT relativepath FROM media WHERE md5=?", (video_content_md5,))
                 md5check = md5select.fetchone()
                 pathselect = cur.execute("SELECT relativepath FROM media WHERE md5=? AND relativepath=?",
-                                         (video_md5, relpath))
+                                         (video_content_md5, relpath))
                 pathcheck = pathselect.fetchone()
                 if pathcheck is None:  # if MD5 and path aren't in SQLite
                     # TODO: if-else isn't the best way to do this
                     if md5check is None:  # if MD5 is not in SQLite
-                        if workingcollection.find_one({"md5": video_md5}, {"md5": 1}) is None:  # if MD5 is not in Mongo
+                        if workingcollection.find_one({"md5": video_md5}, {"md5": 1}) is None \
+                                and workingcollection.find_one({"content_md5": video_content_md5},
+                                                               {"content_md5": 1}) is None:  # if MD5 and content MD5 are not in Mongo
                             try:
                                 logger.info("Processing video %s", relpath)
                                 video_content = get_video_content(videopath)
                                 videopath_array = [videopath]
                                 relpath_array = [relpath]
-                                mongo_entry = create_mongovideoentry(video_content, video_md5, videopath_array,
-                                                                     relpath_array)
+                                mongo_entry = create_mongovideoentry(video_content, video_md5, video_content_md5,
+                                                                     videopath_array, relpath_array)
                                 logger.info("Generated MongoDB entry: %s", mongo_entry)
-                                workingcollection.insert_one(mongo_entry)
-                                cur.execute("INSERT INTO media VALUES (?,?,?,?)", (video_md5, relpath, is_screenshot,
+                                try:
+                                    workingcollection.insert_one(mongo_entry)
+                                except (pymongo.errors.ServerSelectionTimeoutError, pymongo.errors.AutoReconnect) as e:
+                                    logger.warning("Connection error: %s", e)
+                                    time.sleep(10)
+                                cur.execute("INSERT INTO media VALUES (?,?,?,?)", (video_content_md5, relpath, is_screenshot,
                                                                                    subdiv))
                                 con.commit()
                                 logger.info("Added new entry in MongoDB and SQLite for video %s \n", videopath)
@@ -232,47 +256,51 @@ def main():
                                 logger.error("Network error %s processing %s", e, relpath)
                                 continue
                         else:  # if MD5 is in MongoDB
-                            if workingcollection.find_one({"md5": video_md5, "relativepath": relpath},
-                                                          {"md5": 1,
+                            if workingcollection.find_one({"content_md5": video_content_md5, "relativepath": relpath},
+                                                          {"content_md5": 1,
                                                            "relativepath": 1}) is None:  # if path is not in MongoDB
-                                workingcollection.update_one({"md5": video_md5},
-                                                             {"$addToSet": {"path": videopath,
-                                                                            "relativepath": relpath}})
+                                workingcollection.update_one({"content_md5": video_content_md5},
+                                                             {"$addToSet": {"path": videopath, "relativepath": relpath}})
                                 cur.execute("INSERT INTO media VALUES (?,?,?,?)",
-                                            (video_md5, relpath, is_screenshot, subdiv))
+                                            (video_content_md5, relpath, is_screenshot, subdiv))
                                 con.commit()
                                 logger.info("Added path in MongoDB and SQLite for duplicate image %s", videopath)
                                 continue
                             else:  # if path is in MongoDB
                                 logger.warning("Image %s is in MongoDB but not SQLite", videopath)
                                 cur.execute("INSERT INTO media VALUES (?,?,?,?)",
-                                            (video_md5, relpath, is_screenshot, subdiv))
+                                            (video_content_md5, relpath, is_screenshot, subdiv))
                                 con.commit()
                                 continue
                     else:  # if MD5 but not path is in SQLite
-                        if workingcollection.find_one({"md5": video_md5, "relativepath": relpath},
-                                                      {"md5": 1,
+                        if workingcollection.find_one({"content_md5": video_content_md5, "relativepath": relpath},
+                                                      {"content_md5": 1,
                                                        "relativepath": 1}) is None:  # if path is not in MongoDB
-                            workingcollection.update_one({"md5": video_md5},
-                                                         {"$addToSet": {"path": videopath, "relativepath": relpath}})
+                            try:
+                                workingcollection.update_one({"content_md5": video_content_md5},
+                                                             {"$addToSet": {"path": videopath, "relativepath": relpath}})
+                            except (pymongo.errors.ServerSelectionTimeoutError, pymongo.errors.AutoReconnect) as e:
+                                logger.warning("Connection error: %s", e)
+                                time.sleep(10)
                             cur.execute("INSERT INTO media VALUES (?,?,?,?)",
-                                        (video_md5, relpath, is_screenshot, subdiv))
+                                        (video_content_md5, relpath, is_screenshot, subdiv))
                             con.commit()
                             logger.info("Added new entry in MongoDB and SQLite for duplicate path %s", videopath)
                             continue
                         else:  # if path is in Mongo but not SQL
-                            logger.warning("Path for duplicate image %s is in Mongo but not SQL")
+                            logger.warning("Path for duplicate video %s is in Mongo but not SQL", videopath)
                             cur.execute("INSERT INTO media VALUES (?,?,?,?)",
-                                        (video_md5, relpath, is_screenshot, subdiv))
+                                        (video_content_md5, relpath, is_screenshot, subdiv))
                             con.commit()
                             continue
-                else:  # if image and path are in SQLite, check Mongo to avoid silent corruption
-                    if workingcollection.find_one({"md5": video_md5, "relativepath": relpath},
-                                                  {"md5": 1, "relativepath": 1}) is None:
-                        logger.warning("Image %s is in SQLite but not MongoDB.", videopath)
+                else:  # if video and path are in SQLite, check Mongo to avoid silent corruption
+                    if workingcollection.find_one({"content_md5": video_content_md5, "relativepath": relpath},
+                                                  {"content_md5": 1, "relativepath": 1}) is None:
+                        logger.warning("Video %s is in SQLite but not MongoDB.", videopath)
+                        logger.warning("Content: %s", workingcollection.find_one({"content_md5": video_content_md5}))
                         continue
                     else:
-                        logger.info('Image %s is already in MongoDB and SQLite with this path', videopath)
+                        logger.info('Video %s is already in MongoDB and SQLite with this path', videopath)
                         continue
 
 #######################################################################################################################
@@ -308,7 +336,11 @@ def main():
                             relpath_array = [relpath]
                             mongo_entry = create_mongoimageentry(image_content, im_md5, imagepath_array, relpath_array,
                                                                  is_screenshot)
-                            workingcollection.insert_one(mongo_entry)
+                            try:
+                                workingcollection.insert_one(mongo_entry)
+                            except (pymongo.errors.ServerSelectionTimeoutError, pymongo.errors.AutoReconnect) as e:
+                                logger.warning("Connection error: %s", e)
+                                time.sleep(10)
                             cur.execute("INSERT INTO media VALUES (?,?,?,?)", (im_md5, relpath, is_screenshot, subdiv))
                             con.commit()
                             logger.info("Added new entry in MongoDB and SQLite for image %s \n", imagepath)
@@ -316,8 +348,12 @@ def main():
                         else:  # if MD5 is in MongoDB
                             if workingcollection.find_one({"md5": im_md5, "relativepath": relpath},
                                                           {"md5": 1, "relativepath": 1}) is None:  # if path is not in MongoDB
-                                workingcollection.update_one({"md5": im_md5},
-                                                             {"$addToSet": {"path": imagepath, "relativepath": relpath}})
+                                try:
+                                    workingcollection.update_one({"md5": im_md5},
+                                                                 {"$addToSet": {"path": imagepath, "relativepath": relpath}})
+                                except (pymongo.errors.ServerSelectionTimeoutError, pymongo.errors.AutoReconnect) as e:
+                                    logger.warning("Connection error: %s", e)
+                                    time.sleep(10)
                                 cur.execute("INSERT INTO media VALUES (?,?,?,?)",
                                             (im_md5, relpath, is_screenshot, subdiv))
                                 con.commit()
@@ -341,7 +377,7 @@ def main():
                             logger.info("Added new entry in MongoDB and SQLite for duplicate path %s", imagepath)
                             continue
                         else:  # if path is in Mongo but not SQL
-                            logger.warning("Path for duplicate image %s is in Mongo but not SQL")
+                            logger.warning("Path for duplicate image %s is in Mongo but not SQL", imagepath)
                             cur.execute("INSERT INTO media VALUES (?,?,?,?)",
                                         (im_md5, relpath, is_screenshot, subdiv))
                             con.commit()

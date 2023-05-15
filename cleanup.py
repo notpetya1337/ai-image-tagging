@@ -2,16 +2,12 @@ import logging
 import io
 import os
 import sys
-import time
-import datetime
 from configparser import ConfigParser
 from tagging import Tagging
-import sqlite3
 from PIL import Image
 import hashlib
 from mongoclient import get_database
 import pymongo
-from videotagging import VideoData
 
 # initialize logger
 logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
@@ -24,7 +20,6 @@ config = ConfigParser()
 config.read('config.ini')
 subdiv = config.get('properties', 'subdiv')
 rootdir = config.get('divs', subdiv)
-sqldb = config.get('storage', 'sqlitedb')
 mongocollection = config.get('storage', 'mongocollection')
 mongoscreenshotcollection = config.get('storage', 'mongoscreenshotcollection')
 mongodownloadscollection = config.get('storage', 'mongodownloadscollection')
@@ -32,20 +27,7 @@ mongoartcollection = config.get('storage', 'mongoartcollection')
 mongovideocollection = config.get('storage', 'mongovideocollection')
 process_videos = config.getboolean('storage', 'process_videos')
 
-# initialize DBs
-# TODO: turn these into functions and call them
-con = sqlite3.connect(sqldb)
-cur = con.cursor()
-cur.execute("""CREATE TABLE IF NOT EXISTS media 
-    (md5 TEXT NOT NULL, 
-    relativepath TEXT, is_screenshot BOOLEAN NOT NULL CHECK (is_screenshot IN (0, 1)), subdiv TEXT);""")
-cur.execute(
-    "CREATE TABLE IF NOT EXISTS screenshots (md5 INTEGER NOT NULL PRIMARY KEY, vision_text TEXT, names TEXT);")
-cur.execute("CREATE INDEX IF NOT EXISTS md5_idx ON media (md5);")
-con.commit()
-logger.info('DB initialized')
-# except:
-# logger.error('Unable to initialize DB')
+
 currentdb = get_database()
 collection = currentdb[mongocollection]
 screenshotcollection = currentdb[mongoscreenshotcollection]
@@ -62,6 +44,9 @@ artcollection.create_index('vision_tags')
 videocollection.create_index([('md5', pymongo.TEXT)], name='md5_index', unique=True)
 videocollection.create_index('vision_tags')
 
+videoextensions = (".mp4", ".webm", ".mov", ".mkv")
+imageextensions = (".png", ".jpg", ".gif", ".jpeg")
+
 if subdiv.find("screenshots") != -1:
     is_screenshot = 1
     workingcollection = screenshotcollection
@@ -75,6 +60,10 @@ else:
     is_screenshot = 0
     workingcollection = collection
 
+workingcollection = currentdb["testcollection"]
+rootdir = r"C:\Users\Petya\Dowsnloads\Discord"
+
+
 # list all subdirectories in a given folder
 def listdirs(folder):
     internallist = [folder]
@@ -86,7 +75,6 @@ def listdirs(folder):
 
 # list all images in a given folder
 def listimages(subfolder):
-    imageextensions = (".png", ".jpg", ".gif", ".jpeg")
     internallist = []
     for file in os.listdir(subfolder):
         if file.endswith(imageextensions):
@@ -96,13 +84,12 @@ def listimages(subfolder):
 
 
 def listvideos(subfolder):
-    imageextensions = (".mp4", ".webm", ".mov", ".mkv")
     internallist = []
-    if process_videos == False:
+    if not process_videos:
         logger.info("Not processing videos")
         return internallist
     for file in os.listdir(subfolder):
-        if file.endswith(imageextensions):
+        if file.endswith(videoextensions):
             videopath = os.path.join(subfolder, file)
             internallist.append(videopath)
     return internallist
@@ -123,11 +110,11 @@ def get_md5(image_path):
     try:
         im = Image.open(image_path)
         return hashlib.md5(im.tobytes()).hexdigest()
-    except OSError as error:
-        logger.warning(error)
+    except OSError as e:
+        logger.warning(e)
         return "corrupt"
-    except SyntaxError as error:
-        logger.warning(error)
+    except SyntaxError as e:
+        logger.warning(e)
         return "corrupt"
 
 
@@ -152,27 +139,75 @@ imagelist = []
 tagging = Tagging(config)
 allfolders = listdirs(rootdir)
 
-#workingcollection = mongovideocollection
 
 for document in list(workingcollection.find()):
-    #print(document)
-    print("\ndoc _id:", document["_id"])
-    imageextensions = (".png", ".jpg", ".gif", ".jpeg")
-    videoextensions = (".mp4", ".webm", ".mov", ".mkv")
-    for doc in document["path"]:
-        if doc.endswith(videoextensions):
-            print("Doc path is", doc)
+    for relpath in document["relativepath"]:
+        logger.info("Processing relative path")
+        docmd5 = document["md5"]
+        logger.info("Doc MD5 is %s", docmd5)
+        if relpath.endswith(videoextensions):
+            logger.info("Video path is %s", relpath)
             try:
-                print(get_video_md5(os.path.join(rootdir, doc)))
+                logger.info("Video MD5 is %s", get_video_md5(os.path.join(rootdir, relpath)))
             except Exception as error:
-                print("Error is ", error)
-                print("Not found")
+                logger.error("Error is %s", error)
+        if relpath.endswith(imageextensions):
+            logger.info("Image path is %s", relpath)
+            fullpath = os.path.join(rootdir, relpath)
+            logger.info("Full path: %s", fullpath)
+            filefound = os.path.isfile(fullpath)
+            logger.info("File found status: %s", filefound)
+            if filefound:
+                try:
+                    # TODO: check file MD5s
+                    pic_md5 = get_md5(os.path.join(rootdir, relpath))
+                    logger.info("Image MD5 is %s", pic_md5)
+                    if pic_md5 == docmd5:
+                        logger.info("MD5 match for image %s", path)
+                    else:
+                        logger.warning("MD5 mismatch for image file %s. Local hash is %s, MongoDB hash is %s", path,
+                                       pic_md5, docmd5)
+                except Exception as error:
+                    logger.error("Error is %s", error)
+            else:
+                logger.info("Pulling path record", "{'_id': %s}, { '$pull': {'relativepath': { '$in': %s}}}",
+                            document["_id"], path)
+                workingcollection.update_one({'_id': document["_id"]},
+                                             {'$pull': {'relativepath': {'$in': [relpath]}}})
+                # pull path and relpath from Mongo with ID
+        else:
+            logger.warning("File %s not recognized as image or video file", relpath)
 
-        if doc.endswith(imageextensions):
-            print("Doc is ", doc)
+    for path in document["path"]:
+        logger.info("Processing full path")
+        docmd5 = document["md5"]
+        logger.info("Doc MD5 is %s", docmd5)
+        if path.endswith(videoextensions):
+            logger.info("Video path is %s", path)
             try:
-                print(get_md5(os.path.join(rootdir, doc)))
+                logger.info("Video MD5 is %s", get_video_md5(path))
             except Exception as error:
-                print("Error is ", error)
-                print("Not found")
-            # select path and md5, search fs for path and md5
+                logger.error("Error is %s", error)
+
+        if path.endswith(imageextensions):
+            logger.info("Image path is %s", path)
+            filefound = os.path.isfile(path)
+            logger.info("File found status: %s", filefound)
+            if filefound:
+                try:
+                    pic_md5 = get_md5(os.path.join(rootdir, path))
+                    logger.info("Image MD5 is %s", pic_md5)
+                    if pic_md5 == docmd5:
+                        logger.info("MD5 match for image %s", path)
+                    else:
+                        logger.warning("MD5 mismatch for image file %s. Local hash is %s, MongoDB hash is %s", path,
+                                       pic_md5, docmd5)
+                except Exception as error:
+                    logger.error("Error is %s", error)
+                # now check MD5 against Mongo entry
+            else:
+                logger.info("Pulling path record", "{'_id': %s}, { '$pull': {'relativepath': "
+                                                   "{'$in': %s}}}", document["_id"], path)
+                workingcollection.update_one({'_id': document["_id"]}, {'$pull': {'relativepath': {'$in': [path]}}})
+        else:
+            logger.warning("File %s not recognized as image or video file", path)
