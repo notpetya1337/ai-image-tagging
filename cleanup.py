@@ -1,13 +1,12 @@
 import logging
-import io
 import os
 import sys
 from configparser import ConfigParser
 from tagging import Tagging
-from PIL import Image
-import hashlib
 from mongoclient import get_database
 import pymongo
+
+from fileops import listdirs, listimages, listvideos, get_image_md5, get_image_content, get_video_content, get_video_content_md5
 
 # initialize logger
 logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
@@ -22,27 +21,13 @@ subdiv = config.get('properties', 'subdiv')
 rootdir = config.get('divs', subdiv)
 mongocollection = config.get('storage', 'mongocollection')
 mongoscreenshotcollection = config.get('storage', 'mongoscreenshotcollection')
-mongodownloadscollection = config.get('storage', 'mongodownloadscollection')
-mongoartcollection = config.get('storage', 'mongoartcollection')
 mongovideocollection = config.get('storage', 'mongovideocollection')
 process_videos = config.getboolean('storage', 'process_videos')
-
 
 currentdb = get_database()
 collection = currentdb[mongocollection]
 screenshotcollection = currentdb[mongoscreenshotcollection]
-downloadcollection = currentdb[mongodownloadscollection]
-artcollection = currentdb[mongoartcollection]
 videocollection = currentdb[mongovideocollection]
-collection.create_index([('md5', pymongo.TEXT)], name='md5_index', unique=True)
-collection.create_index('vision_tags')
-screenshotcollection.create_index([('md5', pymongo.TEXT)], name='md5_index', unique=True)
-downloadcollection.create_index([('md5', pymongo.TEXT)], name='md5_index', unique=True)
-downloadcollection.create_index('vision_tags')
-artcollection.create_index([('md5', pymongo.TEXT)], name='md5_index', unique=True)
-artcollection.create_index('vision_tags')
-videocollection.create_index([('md5', pymongo.TEXT)], name='md5_index', unique=True)
-videocollection.create_index('vision_tags')
 
 videoextensions = (".mp4", ".webm", ".mov", ".mkv")
 imageextensions = (".png", ".jpg", ".gif", ".jpeg")
@@ -50,88 +35,12 @@ imageextensions = (".png", ".jpg", ".gif", ".jpeg")
 if subdiv.find("screenshots") != -1:
     is_screenshot = 1
     workingcollection = screenshotcollection
-elif subdiv.find("downloads") != -1:
-    is_screenshot = 0
-    workingcollection = downloadcollection
-elif subdiv.find("art") != -1:
-    is_screenshot = 0
-    workingcollection = artcollection
 else:
     is_screenshot = 0
     workingcollection = collection
 
 workingcollection = currentdb["testcollection"]
 rootdir = r"C:\Users\Petya\Dowsnloads\Discord"
-
-
-# list all subdirectories in a given folder
-def listdirs(folder):
-    internallist = [folder]
-    for root, directories, files in os.walk(folder):
-        for directory in directories:
-            internallist.append(os.path.join(root, directory))
-    return internallist
-
-
-# list all images in a given folder
-def listimages(subfolder):
-    internallist = []
-    for file in os.listdir(subfolder):
-        if file.endswith(imageextensions):
-            imagepath = os.path.join(subfolder, file)
-            internallist.append(imagepath)
-    return internallist
-
-
-def listvideos(subfolder):
-    internallist = []
-    if not process_videos:
-        logger.info("Not processing videos")
-        return internallist
-    for file in os.listdir(subfolder):
-        if file.endswith(videoextensions):
-            videopath = os.path.join(subfolder, file)
-            internallist.append(videopath)
-    return internallist
-
-
-# open an image at a given path
-def get_image_content(image_path):
-    image = open(image_path, 'rb')
-    return image.read()
-
-
-def get_video_content(video_path):
-    video = io.open(video_path, 'rb')
-    return video.read()
-
-
-def get_md5(image_path):
-    try:
-        im = Image.open(image_path)
-        return hashlib.md5(im.tobytes()).hexdigest()
-    except OSError as e:
-        logger.warning(e)
-        return "corrupt"
-    except SyntaxError as e:
-        logger.warning(e)
-        return "corrupt"
-
-
-def get_video_md5(video_path, blocksize=2**20):
-    m = hashlib.md5()
-    try:
-        with open(video_path, "rb") as file:
-            while True:
-                buf = file.read(blocksize)
-                if not buf:
-                    break
-                m.update(buf)
-        return m.hexdigest()
-    except OSError:
-        return "corrupt"
-    except SyntaxError:
-        return "corrupt"
 
 
 # define folder and image lists globally
@@ -148,7 +57,7 @@ for document in list(workingcollection.find()):
         if relpath.endswith(videoextensions):
             logger.info("Video path is %s", relpath)
             try:
-                logger.info("Video MD5 is %s", get_video_md5(os.path.join(rootdir, relpath)))
+                logger.info("Video MD5 is %s", get_video_content_md5(os.path.join(rootdir, relpath)))
             except Exception as error:
                 logger.error("Error is %s", error)
         if relpath.endswith(imageextensions):
@@ -160,7 +69,7 @@ for document in list(workingcollection.find()):
             if filefound:
                 try:
                     # TODO: check file MD5s
-                    pic_md5 = get_md5(os.path.join(rootdir, relpath))
+                    pic_md5 = get_image_md5(os.path.join(rootdir, relpath))
                     logger.info("Image MD5 is %s", pic_md5)
                     if pic_md5 == docmd5:
                         logger.info("MD5 match for image %s", path)
@@ -185,7 +94,7 @@ for document in list(workingcollection.find()):
         if path.endswith(videoextensions):
             logger.info("Video path is %s", path)
             try:
-                logger.info("Video MD5 is %s", get_video_md5(path))
+                logger.info("Video MD5 is %s", get_video_content_md5(path))
             except Exception as error:
                 logger.error("Error is %s", error)
 
@@ -195,7 +104,7 @@ for document in list(workingcollection.find()):
             logger.info("File found status: %s", filefound)
             if filefound:
                 try:
-                    pic_md5 = get_md5(os.path.join(rootdir, path))
+                    pic_md5 = get_image_md5(os.path.join(rootdir, path))
                     logger.info("Image MD5 is %s", pic_md5)
                     if pic_md5 == docmd5:
                         logger.info("MD5 match for image %s", path)

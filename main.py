@@ -1,18 +1,15 @@
 import logging
-import io
 import os
 import sys
 import time
 import datetime
 from configparser import ConfigParser
 from tagging import Tagging
-from PIL import Image
-import hashlib
 from mongoclient import get_database
 import pymongo
 from videotagging import VideoData
-import subprocess
-import re
+from fileops import listdirs, listimages, listvideos, \
+    get_image_md5, get_image_content, get_video_content, get_video_content_md5
 
 # initialize logger
 logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
@@ -40,82 +37,9 @@ videocollection = currentdb[mongovideocollection]
 collection.create_index([('md5', pymongo.TEXT)], name='md5_index', unique=True)
 collection.create_index('vision_tags')
 screenshotcollection.create_index([('md5', pymongo.TEXT)], name='md5_index', unique=True)
-# videocollection.create_index([('content_md5', pymongo.TEXT)], name='content_md5_index', unique=True)
+videocollection.create_index([('content_md5', pymongo.TEXT)], name='content_md5_index')
 videocollection.create_index('md5')
 videocollection.create_index('vision_tags')
-
-
-# list all subdirectories in a given folder
-def listdirs(folder):
-    internallist = [folder]
-    for root, directories, files in os.walk(folder):
-        for directory in directories:
-            internallist.append(os.path.join(root, directory))
-    return internallist
-
-
-# list all images in a given folder
-def listimages(subfolder):
-    imageextensions = (".png", ".jpg", ".gif", ".jpeg", ".webp")
-    internallist = []
-    if not process_images:
-        logger.warning("Not processing images")
-        return internallist
-    for file in os.listdir(subfolder):
-        if file.endswith(imageextensions):
-            imagepath = os.path.join(subfolder, file)
-            internallist.append(imagepath)
-    return internallist
-
-
-def listvideos(subfolder):
-    videoextensions = (".mp4", ".webm", ".mov", ".mkv")
-    internallist = []
-    if not process_videos:
-        logger.warning("Not processing videos")
-        return internallist
-    for file in os.listdir(subfolder):
-        if file.endswith(videoextensions):
-            videopath = os.path.join(subfolder, file)
-            internallist.append(videopath)
-    return internallist
-
-
-# open an image at a given path
-def get_image_content(image_path):
-    image = open(image_path, 'rb')
-    return image.read()
-
-
-# open a video at a given path
-def get_video_content(video_path):
-    video = io.open(video_path, 'rb')
-    return video.read()
-
-
-def get_md5(image_path):
-    try:
-        im = Image.open(image_path)
-        return hashlib.md5(im.tobytes()).hexdigest()
-    except OSError:
-        return "corrupt"
-    except SyntaxError:
-        return "corrupt"
-
-
-def get_video_content_md5(video_path):
-    try:
-        process = subprocess.Popen('cmd /c ffmpeg.exe -i "{vpath}" -map 0:v -f md5 -'.format(vpath=video_path),
-                                   shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        out, err = process.communicate()
-        md5list = re.findall(r"MD5=([a-fA-F\d]{32})", str(out))
-        logger.info("Got content MD5 for video %s: %s", video_path, md5list)
-        md5 = md5list[0]
-    except Exception as e:
-        logger.error("Unhandled exception getting MD5 for path %s with ffmpeg: %s", video_path, e)
-        md5 = "corrupt"
-    return md5
-
 
 # define folder and image lists globally
 imagelist = []
@@ -175,8 +99,8 @@ def main():
         start_time = time.process_time()
         if allfolders:
             workingdir = allfolders.pop(0)
-            workingimages = listimages(workingdir)
-            workingvideos = listvideos(workingdir)
+            workingimages = listimages(workingdir, process_images)
+            workingvideos = listvideos(workingdir, process_videos)
 
 #######################################################################################################################
             for videopath in workingvideos:
@@ -230,7 +154,7 @@ def main():
                 else:
                     is_screenshot = 0
                     workingcollection = collection
-                im_md5 = get_md5(imagepath)
+                im_md5 = get_image_md5(imagepath)
                 relpath = os.path.relpath(imagepath, rootdir)
 
                 # if MD5 is not in MongoDB
