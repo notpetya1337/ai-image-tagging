@@ -52,7 +52,7 @@ def listvideos(subfolder, process_videos):
 
 # open an image at a given path
 def get_image_content(image_path):
-    with open(image_path, 'rb') as image:
+    with io.open(image_path, 'rb') as image:
         return image.read()
 
 
