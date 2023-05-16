@@ -118,6 +118,7 @@ def main():
                         mongo_entry = create_mongovideoentry(video_content, video_content_md5,
                                                              videopath_array, relpath_array)
                         logger.info("Generated MongoDB entry: %s", mongo_entry)
+                        # noinspection PyUnresolvedReferences
                         try:
                             workingcollection.insert_one(mongo_entry)
                         except (pymongo.errors.ServerSelectionTimeoutError, pymongo.errors.AutoReconnect) as e:
@@ -164,6 +165,7 @@ def main():
                     relpath_array = [relpath]
                     mongo_entry = create_mongoimageentry(image_content, im_md5, imagepath_array, relpath_array,
                                                          is_screenshot)
+                    # noinspection PyUnresolvedReferences
                     try:
                         workingcollection.insert_one(mongo_entry)
                     except (pymongo.errors.ServerSelectionTimeoutError, pymongo.errors.AutoReconnect) as e:
@@ -176,6 +178,7 @@ def main():
                     # if path is not in MongoDB
                     if workingcollection.find_one({"md5": im_md5, "relativepath": relpath},
                                                   {"md5": 1, "relativepath": 1}) is None:
+                        # noinspection PyUnresolvedReferences
                         try:
                             workingcollection.update_one({"md5": im_md5},
                                                          {"$addToSet": {"path": imagepath, "relativepath": relpath}})

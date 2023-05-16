@@ -6,7 +6,7 @@ from tagging import Tagging
 from mongoclient import get_database
 import pymongo
 
-from fileops import listdirs, listimages, listvideos, get_image_md5, get_image_content, get_video_content, get_video_content_md5
+from fileops import listdirs, get_image_md5, get_video_content_md5
 
 # initialize logger
 logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
@@ -56,6 +56,7 @@ for document in list(workingcollection.find()):
         logger.info("Doc MD5 is %s", docmd5)
         if relpath.endswith(videoextensions):
             logger.info("Video path is %s", relpath)
+            # TODO: add logic to remove dead entries
             try:
                 logger.info("Video MD5 is %s", get_video_content_md5(os.path.join(rootdir, relpath)))
             except Exception as error:

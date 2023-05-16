@@ -12,6 +12,7 @@ def sanitize(s):
     return re.sub(r"[^ -~]", "", n)
 
 
+# noinspection PyUnusedLocal
 class Tagging:
     def __init__(self, config):
         self.google_credentials = config.get('image-recognition', 'google-credentials')
@@ -23,6 +24,8 @@ class Tagging:
             tags = self.google_vision_labels(image_binary=image_binary)
         elif self.tags_backend == 'aws-rekognition':
             tags = self.aws_rekognition(image_binary=image_binary)
+        else:
+            raise Exception("tags_backend must be a valid backend.")
         return tags
 
     def get_text(self, image_binary):
@@ -30,6 +33,8 @@ class Tagging:
             text = self.google_vision_light_ocr(image_binary=image_binary)
         elif self.tags_backend == 'aws-rekognition':
             text = self.aws_rekognition(image_binary=image_binary)
+        else:
+            raise Exception("tags_backend must be a valid backend.")
         return text
 
     # TODO: this doesn't work yet
@@ -38,6 +43,8 @@ class Tagging:
             ocrtext = self.google_vision_heavy_ocr(image_binary=image_binary)
         elif self.tags_backend == 'aws-rekognition':
             ocrtext = self.aws_rekognition(image_binary=image_binary)
+        else:
+            raise Exception("tags_backend must be a valid backend.")
         return ocrtext
 
     def google_vision_labels(self, image_binary):
@@ -88,6 +95,7 @@ class Tagging:
         returntext = textobject
         return returntext
 
+    # noinspection PyMethodMayBeStatic
     def aws_rekognition(self, image_binary):
         return True
         # TODO add AWS support

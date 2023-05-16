@@ -70,6 +70,7 @@ def main():
                 tags = dumps(tags_mongo)
                 text_mongo = []
                 while not text_mongo:
+                    # noinspection PyUnresolvedReferences
                     try:
                         text_mongo = dumps(workingcollection.find_one({"md5": im_md5}, {"vision_text": 1, "_id": 0}))
                         break
@@ -97,6 +98,7 @@ def main():
             for videopath in workingvideos:
                 workingcollection = videocollection
                 video_content_md5 = get_video_content_md5(videopath)
+                # noinspection PyUnresolvedReferences
                 try:
                     tags = dumps(workingcollection.find_one({"content_md5": video_content_md5},
                                                             {"vision_tags": 1, "_id": 0}))
