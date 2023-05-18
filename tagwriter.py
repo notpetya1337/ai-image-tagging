@@ -96,6 +96,7 @@ def main():
                     logger.warning("No metadata found in MongoDB for image %s", imagepath)
                     imagecount += 1
             for videopath in workingvideos:
+                # TODO: write transcript data to a searchable area, possibly appended to OCR
                 workingcollection = videocollection
                 video_content_md5 = get_video_content_md5(videopath)
                 # noinspection PyUnresolvedReferences
@@ -129,7 +130,7 @@ def main():
         else:
             elapsed_time = time.process_time() - start_time
             final_time = str(datetime.timedelta(seconds=elapsed_time))
-            logger.error("All entries processed. Root folder: %s Folder list: %s", rootdir, allfolders)
+            logger.info("All entries processed. Root folder: %s Folder list: %s", rootdir, allfolders)
             print(imagecount, " media processed.")
             print("Processing took ", final_time)
             break
