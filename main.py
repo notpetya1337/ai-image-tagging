@@ -94,20 +94,17 @@ def create_mongovideoentry(video_content, video_content_md5, vidpath_array, relp
 
 
 def main():
+    imagecount = 0
+    start_time = time.process_time()
     while True:
-        imagecount = 0
-        start_time = time.process_time()
         if allfolders:
             workingdir = allfolders.pop(0)
             workingimages = listimages(workingdir, process_images)
             workingvideos = listvideos(workingdir, process_videos)
-
-#######################################################################################################################
             for videopath in workingvideos:
                 workingcollection = videocollection
                 video_content_md5 = str(get_video_content_md5(videopath))
                 relpath = os.path.relpath(videopath, rootdir)
-
                 # if content MD5 is not in Mongo
                 if workingcollection.find_one({"content_md5": video_content_md5}, {"content_md5": 1}) is None:
                     try:
@@ -146,7 +143,6 @@ def main():
                         logger.info("Video %s is in MongoDB", videopath)
                         continue
 
-#######################################################################################################################
             for imagepath in workingimages:
                 imagecount += 1
                 if subdiv.find("screenshots") != -1:
@@ -157,7 +153,6 @@ def main():
                     workingcollection = collection
                 im_md5 = get_image_md5(imagepath)
                 relpath = os.path.relpath(imagepath, rootdir)
-
                 # if MD5 is not in MongoDB
                 if workingcollection.find_one({"md5": im_md5}, {"md5": 1}) is None:
                     image_content = get_image_content(imagepath)
