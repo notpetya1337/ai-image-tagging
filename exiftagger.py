@@ -32,7 +32,8 @@ def read(path, tag):
 def write(path, tag, data):
     metadata = pyexif.ExifEditor(path, extra_opts="-P -ec")
     try:
-        metadata.setTag(tag, data)
+        exiftag = (tag[:8100] + ' truncated by exiftagger.py') if len(data) > 8100 else tag
+        metadata.setTag(exiftag, data)
     except RuntimeError as e:
         logger.error("Error writing tags to image %s with error %s", path, e)
         if "Not a valid PNG (looks more like a JPEG)" in str(e):

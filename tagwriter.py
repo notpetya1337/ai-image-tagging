@@ -56,7 +56,10 @@ def main():
             workingdir = allfolders.pop(0)
             workingimages = listimages(workingdir, process_images)
             workingvideos = listvideos(workingdir, process_videos)
-            workingcollection = collection
+            if subdiv.find("screenshots") != -1:
+                workingcollection = screenshotcollection
+            else:
+                workingcollection = collection
             for imagepath in workingimages:
                 im_md5 = get_image_md5(imagepath)
                 tags_mongo = []
