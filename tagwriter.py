@@ -7,6 +7,7 @@ from tagging import Tagging
 from mongoclient import get_database
 import pymongo
 from bson.json_util import dumps, loads
+import exiftool
 import exiftagger
 from fileops import listdirs, listimages, listvideos, get_image_md5, get_video_content_md5
 
@@ -46,12 +47,20 @@ imagelist = []
 tagging = Tagging(config)
 allfolders = listdirs(rootdir)
 
+def has_utf8(txt):
+    try:
+        txt.encode("cp1252")
+        return False
+    except UnicodeEncodeError:
+        return True
 
 def main():
+    et = exiftool.ExifToolHelper(logger=logging.getLogger(__name__).setLevel(logging.INFO))
+    et_utf8 = exiftool.ExifToolHelper(logger=logging.getLogger(__name__).setLevel(logging.INFO), encoding="utf-8")
     imagecount = 0
     videocount = 0
+    start_time = time.time()
     while True:
-        start_time = time.process_time()
         if allfolders:
             workingdir = allfolders.pop(0)
             workingimages = listimages(workingdir, process_images)
@@ -61,6 +70,7 @@ def main():
             else:
                 workingcollection = collection
             for imagepath in workingimages:
+                imagecount += 1
                 im_md5 = get_image_md5(imagepath)
                 tags_mongo = []
                 while not tags_mongo:
@@ -88,17 +98,27 @@ def main():
                     tags_list = tagsjson.get('vision_tags')
                     logger.info("Tags are %s", tags_list)
                     if tags_list:
-                        exiftagger.write(imagepath, "Subject", tags_list)
+                        try:
+                            et.set_tags(imagepath, tags={"Subject": tags_list}, params=["-P", "-overwrite_original"])
+                        except exiftool.exceptions.ExifToolExecuteError as e:
+                            logger.warning("Error: \"%s \" while writing tags", e)
 
                 if text:
                     text_list = text.get('vision_text').replace('\n', '\\n')
                     logger.info("Text is %s", text_list)
                     if text_list:
-                        exiftagger.write(imagepath, "xmp:Title", text_list)
+                        try:
+                            if has_utf8(text_list):
+                                logger.warning("File %s has Unicode text %s", imagepath, text_list)
+                                et_utf8.set_tags(imagepath, tags={"xmp:Title": text_list}, params=["-P", "-overwrite_original", "-ec"])
+                            else:
+                                et.set_tags(imagepath, tags={"xmp:Title": text_list}, params=["-P", "-overwrite_original", "-ec"])
+                        except exiftool.exceptions.ExifToolExecuteError as e:
+                            logger.warning("Error %s writing tags", e)
                 else:
                     logger.warning("No metadata found in MongoDB for image %s", imagepath)
-                    imagecount += 1
             for videopath in workingvideos:
+                videocount += 1
                 workingcollection = videocollection
                 video_content_md5 = get_video_content_md5(videopath)
                 # noinspection PyUnresolvedReferences
@@ -127,14 +147,15 @@ def main():
                         exiftagger.write(videopath, "Title", text_list)
                 else:
                     logger.warning("No metadata found in MongoDB for video %s, md5 %s", videopath, video_content_md5)
-                    videocount += 1
 
         else:
-            elapsed_time = time.process_time() - start_time
+            elapsed_time = time.time() - start_time
             final_time = str(datetime.timedelta(seconds=elapsed_time))
-            logger.error("All entries processed. Root folder: %s Folder list: %s", rootdir, allfolders)
-            print(imagecount, " media processed.")
+            logger.info("All entries processed. Root folder: %s Folder list: %s", rootdir, allfolders)
+            print(imagecount, "images and ", videocount, "videos processed.")
             print("Processing took ", final_time)
+            et.terminate()
+            et_utf8.terminate()
             break
 
 
