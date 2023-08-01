@@ -62,6 +62,15 @@ class Tagging:
             tags.append(label.description)
         return tags
 
+    def get_explicit(self, image_binary):
+        if self.tags_backend == 'google-vision':
+            text = self.google_vision_explicit_detection(image_binary=image_binary)
+        elif self.tags_backend == 'aws-rekognition':
+            text = self.aws_rekognition(image_binary=image_binary)
+        else:
+            raise Exception("tags_backend must be a valid backend.")
+        return text
+
     def google_vision_light_ocr(self, image_binary):
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self.google_credentials
         os.environ["GOOGLE_CLOUD_PROJECT"] = self.google_project
@@ -94,6 +103,28 @@ class Tagging:
         textobject = response.text_annotations
         returntext = textobject
         return returntext
+
+    def google_vision_explicit_detection(self, image_binary):
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self.google_credentials
+        os.environ["GOOGLE_CLOUD_PROJECT"] = self.google_project
+        from google.cloud import vision
+        client = vision.ImageAnnotatorClient()
+        # Loads the image into memory
+        image = vision.Image(content=image_binary)
+        # Performs label detection on the image file
+        response = client.safe_search_detection(image=image)
+        safe = response.safe_search_annotation
+        # Names of likelihood from google.cloud.vision.enums
+        likelihood_name = (
+            "UNKNOWN",
+            "VERY_UNLIKELY",
+            "UNLIKELY",
+            "POSSIBLE",
+            "LIKELY",
+            "VERY_LIKELY",
+        )
+        detectionobject = safe
+        return safe
 
     # noinspection PyMethodMayBeStatic
     def aws_rekognition(self, image_binary):

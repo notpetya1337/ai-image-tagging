@@ -28,7 +28,6 @@ mongovideocollection = config.get('storage', 'mongovideocollection')
 process_videos = config.getboolean('storage', 'process_videos')
 process_images = config.getboolean('storage', 'process_images')
 
-
 # initialize DBs
 currentdb = get_database()
 collection = currentdb[mongocollection]
@@ -46,6 +45,16 @@ imagelist = []
 tagging = Tagging(config)
 allfolders = listdirs(rootdir)
 
+# Names of likelihood from google.cloud.vision.enums
+likelihood_name = (
+    "UNKNOWN",
+    "Very unlikely",
+    "Unlikely",
+    "Possible",
+    "Likely",
+    "Very likely",
+)
+
 
 def create_mongoimageentry(image_content, im_md5, image_array, relpath_array, is_screenshot):
     if is_screenshot == 1:
@@ -62,10 +71,17 @@ def create_mongoimageentry(image_content, im_md5, image_array, relpath_array, is
     elif is_screenshot == 0:
         tags = tagging.get_tags(image_binary=image_content)
         text = tagging.get_text(image_binary=image_content)
+        safe = tagging.get_explicit(image_binary=image_content)
         mongo_entry = {
             "md5": im_md5,
             "vision_tags": tags,
             "vision_text": text[0],
+
+            "explicit_detection": [{"adult": f"{likelihood_name[safe.adult]}",
+                                    "medical": f"{likelihood_name[safe.medical]}",
+                                    "spoofed": f"{likelihood_name[safe.spoof]}",
+                                    "violence": f"{likelihood_name[safe.violence]}",
+                                    "racy": f"{likelihood_name[safe.racy]}"}],
             "path": image_array,
             "subdiv": subdiv,
             "relativepath": relpath_array,
@@ -86,6 +102,7 @@ def create_mongovideoentry(video_content, video_content_md5, vidpath_array, relp
         "vision_tags": videoobj.labels,
         "vision_text": videoobj.text,
         "vision_transcript": videoobj.transcripts,
+        "explicit_detection": videoobj.pornography,
         "path": vidpath_array,
         "subdiv": subdiv,
         "relativepath": relpath_array,
@@ -94,16 +111,18 @@ def create_mongovideoentry(video_content, video_content_md5, vidpath_array, relp
 
 
 def main():
+    imagecount = 0
+    videocount = 0
+    start_time = time.time()
     while True:
-        imagecount = 0
-        start_time = time.process_time()
         if allfolders:
+            # TODO: launch threads for videos and images
             workingdir = allfolders.pop(0)
             workingimages = listimages(workingdir, process_images)
             workingvideos = listvideos(workingdir, process_videos)
-
-#######################################################################################################################
+            #######################################################################################################################
             for videopath in workingvideos:
+                videocount += 1
                 workingcollection = videocollection
                 video_content_md5 = str(get_video_content_md5(videopath))
                 relpath = os.path.relpath(videopath, rootdir)
@@ -130,7 +149,6 @@ def main():
                     except OSError as e:
                         logger.error("Network error %s processing %s", e, relpath)
                         continue
-
                 # if content MD5 is in MongoDB
                 else:
                     # if path is not in MongoDB
@@ -145,8 +163,7 @@ def main():
                     else:
                         logger.info("Video %s is in MongoDB", videopath)
                         continue
-
-#######################################################################################################################
+            #######################################################################################################################
             for imagepath in workingimages:
                 imagecount += 1
                 if subdiv.find("screenshots") != -1:
@@ -157,7 +174,6 @@ def main():
                     workingcollection = collection
                 im_md5 = get_image_md5(imagepath)
                 relpath = os.path.relpath(imagepath, rootdir)
-
                 # if MD5 is not in MongoDB
                 if workingcollection.find_one({"md5": im_md5}, {"md5": 1}) is None:
                     image_content = get_image_content(imagepath)
@@ -191,12 +207,11 @@ def main():
                     else:
                         logger.info("Image %s is in MongoDB", imagepath)
                         continue
-
         else:
-            elapsed_time = time.process_time() - start_time
+            elapsed_time = time.time() - start_time
             final_time = str(datetime.timedelta(seconds=elapsed_time))
             logger.info("All entries processed. Root folder: %s Folder list: %s", rootdir, allfolders)
-            print(imagecount, " media processed.")
+            print(imagecount, "images and ", videocount, "videos processed.")
             print("Processing took ", final_time)
             break
 

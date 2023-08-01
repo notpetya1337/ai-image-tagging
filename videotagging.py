@@ -21,11 +21,12 @@ class VideoData:
         self.labels_category = []
         self.transcripts = []
         self.video_binary = []
+        self.pornography = []
 
     def video_vision_all(self, video_binary):
         video_client = videointelligence.VideoIntelligenceServiceClient()
         features = [videointelligence.Feature.LABEL_DETECTION, videointelligence.Feature.TEXT_DETECTION,
-                    videointelligence.Feature.SPEECH_TRANSCRIPTION]
+                    videointelligence.Feature.SPEECH_TRANSCRIPTION, videointelligence.Feature.EXPLICIT_CONTENT_DETECTION]
         vision_config = videointelligence.SpeechTranscriptionConfig(language_code="en-US", enable_automatic_punctuation=True)
         video_context = videointelligence.VideoContext(speech_transcription_config=vision_config)
         operation = video_client.annotate_video(
@@ -48,6 +49,28 @@ class VideoData:
                 self.labels.append(shot_label.entity.description)
                 for category_entity in shot_label.category_entities:
                     self.labels_category.append(category_entity.description)
+        for frame in result.annotation_results[0].explicit_annotation.frames:
+            likelihood = videointelligence.Likelihood(frame.pornography_likelihood)
+            self.pornography.append("pornography: {}".format(likelihood.name))
+        # remove duplicates
+        self.pornography = list(dict.fromkeys(self.pornography))
+
+    def video_vision_explicit(self, video_binary):
+        video_client = videointelligence.VideoIntelligenceServiceClient()
+        features = [videointelligence.Feature.EXPLICIT_CONTENT_DETECTION]
+        vision_config = videointelligence.SpeechTranscriptionConfig(language_code="en-US", enable_automatic_punctuation=True)
+        video_context = videointelligence.VideoContext(speech_transcription_config=vision_config)
+        operation = video_client.annotate_video(
+            request={"features": features, "input_content": video_binary, "video_context": video_context}
+        )
+        print("\nProcessing video for all annotations:")
+        result = operation.result(timeout=600)
+        print("\nFinished processing.")
+        for frame in result.annotation_results[0].explicit_annotation.frames:
+            likelihood = videointelligence.Likelihood(frame.pornography_likelihood)
+            self.pornography.append("pornography: {}".format(likelihood.name))
+        # remove duplicates
+        self.pornography = list(dict.fromkeys(self.pornography))
 
 
 subdiv = "placeholder"
@@ -62,10 +85,11 @@ def main():
     videoobj.video_vision_all(video_content)
     print(videoobj)
     mongo_entry = {
-            "md5": vid_md5,
+            "content_md5": vid_md5,
             "vision_tags": videoobj.labels,
             "vision_text": videoobj.text,
             "vision_transcript": videoobj.transcripts,
+            "explicit_detection": videoobj.pornography,
             "path": path,
             "subdiv": subdiv,
             "relativepath": relpath_array,

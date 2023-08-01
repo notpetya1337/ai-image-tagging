@@ -8,7 +8,6 @@ from mongoclient import get_database
 import pymongo
 from bson.json_util import dumps, loads
 import exiftool
-import exiftagger
 from fileops import listdirs, listimages, listvideos, get_image_md5, get_video_content_md5
 
 # initialize logger
@@ -47,19 +46,18 @@ imagelist = []
 tagging = Tagging(config)
 allfolders = listdirs(rootdir)
 
-def has_utf8(txt):
-    try:
-        txt.encode("cp1252")
-        return False
-    except UnicodeEncodeError:
-        return True
 
 def main():
-    et = exiftool.ExifToolHelper(logger=logging.getLogger(__name__).setLevel(logging.INFO))
-    et_utf8 = exiftool.ExifToolHelper(logger=logging.getLogger(__name__).setLevel(logging.INFO), encoding="utf-8")
+    et = exiftool.ExifToolHelper(logger=logging.getLogger(__name__).setLevel(logging.INFO), encoding="utf-8")
     imagecount = 0
     videocount = 0
     start_time = time.time()
+    if subdiv.find("screenshots") != -1:
+        is_screenshot = 1
+        workingcollection = screenshotcollection
+    else:
+        is_screenshot = 0
+        workingcollection = collection
     while True:
         if allfolders:
             workingdir = allfolders.pop(0)
@@ -74,6 +72,7 @@ def main():
                 im_md5 = get_image_md5(imagepath)
                 tags_mongo = []
                 while not tags_mongo:
+                    # noinspection PyUnresolvedReferences
                     try:
                         tags_mongo = workingcollection.find_one({"md5": im_md5}, {"vision_tags": 1, "_id": 0})
                         break
@@ -92,8 +91,28 @@ def main():
                         time.sleep(10)
                 text = loads(text_mongo)
 
+                explicit_mongo = []
+                while not explicit_mongo:
+                    if is_screenshot == 1:
+                        detection_results = []
+                    else:
+                        # noinspection PyUnresolvedReferences
+                        try:
+                            explicit_mongo = workingcollection.find_one({"md5": im_md5}, {"explicit_detection": 1, "_id": 0})
+                            detobj = explicit_mongo['explicit_detection']
+                            detobj = detobj[0]
+                            detection_results = f"Adult: {detobj['adult']}", f"Medical: {detobj['medical']}", f"Spoofed: {detobj['spoofed']}", f"Violence: {detobj['violence']}", f"Racy: {detobj['racy']}"
+                            break
+                        except (pymongo.errors.ServerSelectionTimeoutError, pymongo.errors.AutoReconnect) as e:
+                            logger.warning("Connection error: %s", e)
+                            time.sleep(10)
+                        except KeyError as e:
+                            logger.warning("Explicit tags not found for %s", imagepath)
+                            detection_results = []
+
                 logger.info("Processing image %s", imagepath)
                 tagsjson = loads(tags)
+                tagsjson['vision_tags'].extend(detection_results)
                 if tagsjson:
                     tags_list = tagsjson.get('vision_tags')
                     logger.info("Tags are %s", tags_list)
@@ -108,11 +127,7 @@ def main():
                     logger.info("Text is %s", text_list)
                     if text_list:
                         try:
-                            if has_utf8(text_list):
-                                logger.warning("File %s has Unicode text %s", imagepath, text_list)
-                                et_utf8.set_tags(imagepath, tags={"xmp:Title": text_list}, params=["-P", "-overwrite_original", "-ec"])
-                            else:
-                                et.set_tags(imagepath, tags={"xmp:Title": text_list}, params=["-P", "-overwrite_original", "-ec"])
+                            et.set_tags(imagepath, tags={"xmp:Title": text_list}, params=["-P", "-overwrite_original", "-ec"])
                         except exiftool.exceptions.ExifToolExecuteError as e:
                             logger.warning("Error %s writing tags", e)
                 else:
@@ -129,22 +144,45 @@ def main():
                     logger.warning("Connection error: %s", e)
                     time.sleep(10)
                     continue
-                text_array = loads(dumps(workingcollection.find_one({"md5": video_content_md5},
+                text_array = loads(dumps(workingcollection.find_one({"content_md5": video_content_md5},
                                                                     {"vision_text": 1, "_id": 0})))
+
+                explicit_mongo = []
+                while not explicit_mongo:
+                    # noinspection PyUnresolvedReferences
+                    try:
+                        explicit_mongo = workingcollection.find_one({"content_md5": video_content_md5},
+                                                                    {"explicit_detection": 1, "_id": 0})
+                        detobj = explicit_mongo['explicit_detection']
+                        break
+                    except (pymongo.errors.ServerSelectionTimeoutError, pymongo.errors.AutoReconnect) as e:
+                        logger.warning("Connection error: %s", e)
+                        time.sleep(10)
+                    except KeyError as e:
+                        logger.warning("Explicit tags not found for %s", videopath)
+                        detobj = []
                 tagsjson = loads(tags)
+                tagsjson['vision_tags'].extend(detobj)
                 logger.info("Processing video %s", videopath)
                 if tagsjson:
                     tags_list = tagsjson.get('vision_tags')
                     logger.info("Tags are %s", tags_list)
                     if tags_list:
                         logger.info("Writing text")
-                        exiftagger.write(videopath, "Subject", tags_list)
+                        try:
+                            et.set_tags(videopath, tags={"Subject": tags_list}, params=["-P", "-overwrite_original"])
+                        except exiftool.exceptions.ExifToolExecuteError as e:
+                            logger.warning("Error: \"%s \" while writing tags", e)
                 if text_array:
                     text_list = (' '.join(text_array.get('vision_text'))).replace('\n', '\\n')
                     logger.info("Text is %s", text_list)
                     if text_list:
                         logger.info("Writing text")
-                        exiftagger.write(videopath, "Title", text_list)
+                        try:
+                            et.set_tags(videopath, tags={"Title": text_list},
+                                        params=["-P", "-overwrite_original", "-ec"])
+                        except exiftool.exceptions.ExifToolExecuteError as e:
+                            logger.warning("Error: \"%s \" while writing tags", e)
                 else:
                     logger.warning("No metadata found in MongoDB for video %s, md5 %s", videopath, video_content_md5)
 
@@ -155,7 +193,6 @@ def main():
             print(imagecount, "images and ", videocount, "videos processed.")
             print("Processing took ", final_time)
             et.terminate()
-            et_utf8.terminate()
             break
 
 
