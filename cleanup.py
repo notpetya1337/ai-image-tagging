@@ -21,6 +21,7 @@ rootdir = config.get('divs', subdiv)
 mongocollection = config.get('storage', 'mongocollection')
 mongoscreenshotcollection = config.get('storage', 'mongoscreenshotcollection')
 mongovideocollection = config.get('storage', 'mongovideocollection')
+process_images = config.getboolean('storage', 'process_images')
 process_videos = config.getboolean('storage', 'process_videos')
 
 currentdb = get_database()
@@ -38,8 +39,7 @@ else:
     is_screenshot = 0
     workingcollection = collection
 
-rootdir = r"C:\Users\Petya\Dowsnloads\Discord"
-
+rootdir = config.get('divs', 'cleanupdiv')
 
 # define folder and image lists globally
 imagelist = []
@@ -47,75 +47,74 @@ tagging = Tagging(config)
 allfolders = listdirs(rootdir)
 
 
-for document in list(workingcollection.find()):
-    for relpath in document["relativepath"]:
-        logger.info("Processing relative path")
-        docmd5 = document["md5"]
-        logger.info("Doc MD5 is %s", docmd5)
-        if relpath.endswith(videoextensions):
-            logger.info("Video path is %s", relpath)
-            # TODO: add logic to remove dead entries
-            try:
-                logger.info("Video MD5 is %s", get_video_content_md5(os.path.join(rootdir, relpath)))
-            except Exception as error:
-                logger.error("Error is %s", error)
-        if relpath.endswith(imageextensions):
-            logger.info("Image path is %s", relpath)
-            fullpath = os.path.join(rootdir, relpath)
-            logger.info("Full path: %s", fullpath)
-            filefound = os.path.isfile(fullpath)
-            logger.info("File found status: %s", filefound)
-            if filefound:
-                try:
-                    # TODO: check file MD5s
-                    pic_md5 = get_image_md5(os.path.join(rootdir, relpath))
-                    logger.info("Image MD5 is %s", pic_md5)
-                    if pic_md5 == docmd5:
-                        logger.info("MD5 match for image %s", fullpath)
-                    else:
-                        logger.warning("MD5 mismatch for image file %s. Local hash is %s, MongoDB hash is %s", fullpath,
-                                       pic_md5, docmd5)
-                except Exception as error:
-                    logger.error("Error is %s", error)
-            else:
-                logger.info("Pulling path record", "{'_id': %s}, { '$pull': {'relativepath': { '$in': %s}}}",
-                            document["_id"], fullpath)
-                workingcollection.update_one({'_id': document["_id"]},
-                                             {'$pull': {'relativepath': {'$in': [relpath]}}})
-                # pull path and relpath from Mongo with ID
-        else:
-            logger.warning("File %s not recognized as image or video file", relpath)
+def main():
+    while True:
+        if process_images:
+            logger.info("Processing image DB %s", mongocollection)
+            for document in list(workingcollection.find({'subdiv': subdiv})):
+                for relpath in document["relativepath"]:
+                    logger.info("Processing relative path")
+                    docmd5 = document["md5"]
+                    logger.info("Doc MD5 is %s", docmd5)
+                    if relpath.endswith(imageextensions):
+                        removepath = False
+                        logger.info("Image path is %s", relpath)
+                        fullpath = os.path.join(rootdir, relpath)
+                        logger.info("Full path: %s", fullpath)
+                        filefound = os.path.isfile(fullpath)
+                        logger.info("File found status: %s", filefound)
+                        if filefound:
+                            pic_md5 = get_image_md5(os.path.join(rootdir, relpath))
+                            logger.info("Image MD5 is %s", pic_md5)
+                            if pic_md5 == docmd5:
+                                logger.info("MD5 match for image %s", fullpath)
+                            else:
+                                logger.warning("MD5 mismatch for image file %s. Local hash is %s, MongoDB hash is %s",
+                                               fullpath, pic_md5, docmd5)
+                                removepath = True
+                        elif not filefound:
+                            removepath = True
+                        if removepath:
+                            logger.info("Pulling path record, {'_id': %s}, { '$pull': {'relativepath': { '$in': %s}}}",
+                                        document["_id"], relpath)
+                            workingcollection.update_one({'_id': document["_id"]},
+                                                         {'$pull': {'relativepath': {'$in': [relpath]}}})
+                            # pull relpath from current document by ID in Mongo
 
-    for path in document["path"]:
-        logger.info("Processing full path")
-        docmd5 = document["md5"]
-        logger.info("Doc MD5 is %s", docmd5)
-        if path.endswith(videoextensions):
-            logger.info("Video path is %s", path)
-            try:
-                logger.info("Video MD5 is %s", get_video_content_md5(path))
-            except Exception as error:
-                logger.error("Error is %s", error)
+        if process_videos:
+            logger.info("Processing video DB %s", mongovideocollection)
+            for document in list(videocollection.find({'subdiv': subdiv})):
+                for relpath in document["relativepath"]:
+                    logger.info("Processing relative path")
+                    docmd5 = document["content_md5"]
+                    logger.info("Doc MD5 is %s", docmd5)
+                    if relpath.endswith(videoextensions):
+                        removepath = False
+                        logger.info("Video path is %s", relpath)
+                        fullpath = os.path.join(rootdir, relpath)
+                        logger.info("Full path: %s", fullpath)
+                        filefound = os.path.isfile(fullpath)
+                        logger.info("File found status: %s", filefound)
+                        if filefound:
+                            vid_md5 = get_video_content_md5(os.path.join(rootdir, relpath))
+                            logger.info("Video MD5 is %s", vid_md5)
+                            if vid_md5 == docmd5:
+                                logger.info("MD5 match for video %s", fullpath)
+                            else:
+                                logger.warning("MD5 mismatch for video file %s. Local hash is %s, MongoDB hash is %s",
+                                               fullpath, vid_md5, docmd5)
+                                removepath = True
+                        elif not filefound:
+                            removepath = True
+                        if removepath:
+                            logger.info("Pulling path record, {'_id': %s}, { '$pull': {'relativepath': { '$in': %s}}}",
+                                        document["_id"], relpath)
+                            videocollection.update_one({'_id': document["_id"]},
+                                                       {'$pull': {'relativepath': {'$in': [relpath]}}})
+                            # pull relpath from current document by ID in Mongo
+        # TODO: add logic to process video entries as well
+        break
 
-        if path.endswith(imageextensions):
-            logger.info("Image path is %s", path)
-            filefound = os.path.isfile(path)
-            logger.info("File found status: %s", filefound)
-            if filefound:
-                try:
-                    pic_md5 = get_image_md5(os.path.join(rootdir, path))
-                    logger.info("Image MD5 is %s", pic_md5)
-                    if pic_md5 == docmd5:
-                        logger.info("MD5 match for image %s", path)
-                    else:
-                        logger.warning("MD5 mismatch for image file %s. Local hash is %s, MongoDB hash is %s", path,
-                                       pic_md5, docmd5)
-                except Exception as error:
-                    logger.error("Error is %s", error)
-                # now check MD5 against Mongo entry
-            else:
-                logger.info("Pulling path record", "{'_id': %s}, { '$pull': {'relativepath': "
-                                                   "{'$in': %s}}}", document["_id"], path)
-                workingcollection.update_one({'_id': document["_id"]}, {'$pull': {'relativepath': {'$in': [path]}}})
-        else:
-            logger.warning("File %s not recognized as image or video file", path)
+
+if __name__ == "__main__":
+    main()

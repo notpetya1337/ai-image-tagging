@@ -6,6 +6,7 @@ import hashlib
 import subprocess
 import re
 from PIL import Image
+from shellescape import quote
 
 # initialize logger
 logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
@@ -74,6 +75,8 @@ def get_image_md5(image_path):
 
 def get_video_content_md5(video_path):
     try:
+        #process = subprocess.Popen('bash -c \'ffmpeg -i "{vpath}" -map 0:v -f md5 -\''.format(vpath=video_path),
+        #                           shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         process = subprocess.Popen('cmd /c ffmpeg.exe -i "{vpath}" -map 0:v -f md5 -'.format(vpath=video_path),
                                    shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = process.communicate()
