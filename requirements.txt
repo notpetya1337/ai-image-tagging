@@ -5,3 +5,4 @@ pyexif
 Pillow
 pymongo[srv]
 google-cloud-videointelligence
+backoff

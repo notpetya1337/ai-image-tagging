@@ -1,6 +1,8 @@
 import os
 import re
 import logging
+import backoff
+from google.cloud import vision
 
 logger = logging.getLogger(__name__)
 
@@ -47,10 +49,10 @@ class Tagging:
             raise Exception("tags_backend must be a valid backend.")
         return ocrtext
 
+    @backoff.on_exception(backoff.expo, vision.Image)
     def google_vision_labels(self, image_binary):
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self.google_credentials
         os.environ["GOOGLE_CLOUD_PROJECT"] = self.google_project
-        from google.cloud import vision
         client = vision.ImageAnnotatorClient()
         # Loads the image into memory
         image = vision.Image(content=image_binary)
@@ -74,7 +76,6 @@ class Tagging:
     def google_vision_light_ocr(self, image_binary):
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self.google_credentials
         os.environ["GOOGLE_CLOUD_PROJECT"] = self.google_project
-        from google.cloud import vision
         client = vision.ImageAnnotatorClient()
         # Loads the image into memory
         image = vision.Image(content=image_binary)
@@ -94,7 +95,6 @@ class Tagging:
 
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self.google_credentials
         os.environ["GOOGLE_CLOUD_PROJECT"] = self.google_project
-        from google.cloud import vision
         client = vision.ImageAnnotatorClient()
         # Loads the image into memory
         image = vision.Image(content=image_binary)
@@ -107,7 +107,6 @@ class Tagging:
     def google_vision_explicit_detection(self, image_binary):
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self.google_credentials
         os.environ["GOOGLE_CLOUD_PROJECT"] = self.google_project
-        from google.cloud import vision
         client = vision.ImageAnnotatorClient()
         # Loads the image into memory
         image = vision.Image(content=image_binary)
