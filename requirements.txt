@@ -1,8 +1,9 @@
 bottle
 python-magic
 google-cloud-vision
-pyexif
+pyexiftool
 Pillow
 pymongo[srv]
 google-cloud-videointelligence
+moviepy
 backoff
