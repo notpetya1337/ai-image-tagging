@@ -1,21 +1,18 @@
 # Google Cloud tagging for images
 
 ## Functionality:
-main.py takes images from a local folder, checks the MD5 against a MongoDB database, processes the images through Google's Vision AI, retrieves AI-generated labels and OCRed text, and writes the data to MongoDB documents  
+main.py takes images from a local folder, checks the MD5 against a MongoDB database, processes the images through Google's Vision AI, retrieves AI-generated labels and OCRed text, and writes the data to MongoDB documents.\
 tagwriter.py reads the data from MongoDB and writes it to EXIF tags.\
 cleanup.py checks the paths in MongoDB against local files and removes any path entries that don't exist locally.\
 Google Vision currently allows 1000 free requests per month and charges $1.50 per 1000 requests afterward.
 
 ## Use case:
-Windows Explorer indexes EXIF tags. On Android, the Aves app allows you to search by tags and description text in EXIF
+Windows Explorer indexes EXIF tags. On Android, the Aves app allows you to search by tags and description text in EXIF.
 
 ## TODO:
 Make app run as service and automatically process new files\
 Add support for DeepDetect (locally hosted image recognition)\
-Add script to update image locations in database based on MD5\
-Add support for AWS Rekognition\
-Add better validation for returned OCR text (currently, all characters matching [^ -~] are stripped)\
-Add batch processing and/or multithreading (processing a single image currently takes 1-3 seconds)
+Add support for AWS Rekognition
 
 ## Requirements:
 To be able to process videos, ffmpeg needs be installed and accessible.\
