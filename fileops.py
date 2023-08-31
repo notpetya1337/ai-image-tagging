@@ -6,10 +6,9 @@ import hashlib
 import subprocess
 import re
 from PIL import Image
-from shellescape import quote
 
 # initialize logger
-logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
+logging.basicConfig(stream=sys.stderr, level=logging.WARNING)
 logging.getLogger('PIL').setLevel(logging.ERROR)
 logging.debug("logging started")
 logger = logging.getLogger(__name__)
@@ -18,7 +17,8 @@ logger = logging.getLogger(__name__)
 # list all subdirectories in a given folder
 def listdirs(folder):
     internallist = [folder]
-    for root, directories, files in os.walk(folder):
+    for root, directories, files in os.walk(folder, topdown=True):
+        directories[:] = [d for d in directories if not d[0] == '.']
         for directory in directories:
             internallist.append(os.path.join(root, directory))
     return internallist
