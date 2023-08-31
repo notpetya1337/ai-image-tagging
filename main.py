@@ -1,15 +1,17 @@
+import datetime
 import logging
 import os
 import sys
 import time
-import datetime
 from configparser import ConfigParser
-from tagging import Tagging
-from mongoclient import get_database
+
 import pymongo
-from videotagging import VideoData
-from fileops import listdirs, listimages, listvideos, \
+
+from dependencies.fileops import listdirs, listimages, listvideos, \
     get_image_md5, get_image_content, get_video_content, get_video_content_md5
+from dependencies.mongoclient import get_database
+from dependencies.vision import Tagging
+from dependencies.vision_video import VideoData
 
 # initialize logger
 logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
@@ -120,7 +122,7 @@ def main():
             workingdir = allfolders.pop(0)
             workingimages = listimages(workingdir, process_images)
             workingvideos = listvideos(workingdir, process_videos)
-            #######################################################################################################################
+            ############################################################################################################
             for videopath in workingvideos:
                 videocount += 1
                 workingcollection = videocollection
@@ -163,7 +165,7 @@ def main():
                     else:
                         logger.info("Video %s is in MongoDB", videopath)
                         continue
-            #######################################################################################################################
+            ############################################################################################################
             for imagepath in workingimages:
                 imagecount += 1
                 if subdiv.find("screenshots") != -1:

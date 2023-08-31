@@ -1,5 +1,7 @@
-from pymongo import MongoClient
 from configparser import ConfigParser
+
+from pymongo import MongoClient
+
 config = ConfigParser()
 config.read('config.ini')
 connectstring = config.get('storage', 'connectionstring')

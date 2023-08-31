@@ -7,3 +7,4 @@ pymongo[srv]
 google-cloud-videointelligence
 moviepy
 backoff
+watchdog

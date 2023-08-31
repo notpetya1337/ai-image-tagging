@@ -1,16 +1,18 @@
+import concurrent.futures
+import datetime
+import json
 import logging
 import sys
-import time
-import datetime
-from configparser import ConfigParser
-from tagging import Tagging
-from mongoclient import get_database
-from bson.json_util import dumps, loads
-import json
-import exiftool
-from fileops import listdirs, listimages, listvideos, get_image_md5, get_video_content_md5
 import threading
-import concurrent.futures
+import time
+from configparser import ConfigParser
+
+import exiftool
+from bson.json_util import dumps, loads
+
+from dependencies.fileops import listdirs, listimages, listvideos, get_image_md5, get_video_content_md5
+from dependencies.mongoclient import get_database
+from dependencies.vision import Tagging
 
 # read config
 config = ConfigParser()
@@ -33,7 +35,6 @@ logging.basicConfig(stream=sys.stderr, level=logging.INFO)
 logging.getLogger('PIL').setLevel(logging.ERROR)
 logging.debug("logging started")
 logger = logging.getLogger(__name__)
-
 
 # initialize DBs
 currentdb = get_database()

@@ -1,6 +1,7 @@
+import logging
 import os
 import re
-import logging
+
 import backoff
 from google.cloud import vision
 

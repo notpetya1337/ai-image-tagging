@@ -1,6 +1,7 @@
 import io
 import os
 from configparser import ConfigParser
+
 from google.cloud import videointelligence
 
 # read config
@@ -26,8 +27,10 @@ class VideoData:
     def video_vision_all(self, video_binary):
         video_client = videointelligence.VideoIntelligenceServiceClient()
         features = [videointelligence.Feature.LABEL_DETECTION, videointelligence.Feature.TEXT_DETECTION,
-                    videointelligence.Feature.SPEECH_TRANSCRIPTION, videointelligence.Feature.EXPLICIT_CONTENT_DETECTION]
-        vision_config = videointelligence.SpeechTranscriptionConfig(language_code="en-US", enable_automatic_punctuation=True)
+                    videointelligence.Feature.SPEECH_TRANSCRIPTION,
+                    videointelligence.Feature.EXPLICIT_CONTENT_DETECTION]
+        vision_config = videointelligence.SpeechTranscriptionConfig(language_code="en-US",
+                                                                    enable_automatic_punctuation=True)
         video_context = videointelligence.VideoContext(speech_transcription_config=vision_config)
         operation = video_client.annotate_video(
             request={"features": features, "input_content": video_binary, "video_context": video_context}
@@ -58,7 +61,8 @@ class VideoData:
     def video_vision_explicit(self, video_binary):
         video_client = videointelligence.VideoIntelligenceServiceClient()
         features = [videointelligence.Feature.EXPLICIT_CONTENT_DETECTION]
-        vision_config = videointelligence.SpeechTranscriptionConfig(language_code="en-US", enable_automatic_punctuation=True)
+        vision_config = videointelligence.SpeechTranscriptionConfig(language_code="en-US",
+                                                                    enable_automatic_punctuation=True)
         video_context = videointelligence.VideoContext(speech_transcription_config=vision_config)
         operation = video_client.annotate_video(
             request={"features": features, "input_content": video_binary, "video_context": video_context}
@@ -85,18 +89,17 @@ def main():
     videoobj.video_vision_all(video_content)
     print(videoobj)
     mongo_entry = {
-            "content_md5": vid_md5,
-            "vision_tags": videoobj.labels,
-            "vision_text": videoobj.text,
-            "vision_transcript": videoobj.transcripts,
-            "explicit_detection": videoobj.pornography,
-            "path": path,
-            "subdiv": subdiv,
-            "relativepath": relpath_array,
-        }
+        "content_md5": vid_md5,
+        "vision_tags": videoobj.labels,
+        "vision_text": videoobj.text,
+        "vision_transcript": videoobj.transcripts,
+        "explicit_detection": videoobj.pornography,
+        "path": path,
+        "subdiv": subdiv,
+        "relativepath": relpath_array,
+    }
     print(mongo_entry)
 
 
 if __name__ == "__main__":
     main()
-
