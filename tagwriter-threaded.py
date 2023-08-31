@@ -110,15 +110,15 @@ def getvideotags(content_md5):
 def writeimagetags(path, tags, text, et):
     # Tags go to Subject, comma separated
     # Text goes to Description for now
-    # TODO: combine these into one operation, make it fail-safe
-    if tags:
+    if tags and text:
         try:
-            et.set_tags(path, tags={"Subject": tags}, params=["-P", "-overwrite_original"])
+            # TODO: check back and see if -ec is necessary
+            et.set_tags(path, tags={"Subject": tags, "xmp:Title": text}, params=["-P", "-overwrite_original"])
         except exiftool.exceptions.ExifToolExecuteError as e:
             logger.warning("Error \"%s \" writing tags, Exiftool output was %s", e, et.last_stderr)
-    if text:
+    elif tags:
         try:
-            et.set_tags(path, tags={"xmp:Title": text}, params=["-P", "-overwrite_original", "-ec"])
+            et.set_tags(path, tags={"Subject": tags}, params=["-P", "-overwrite_original"])
         except exiftool.exceptions.ExifToolExecuteError as e:
             logger.warning("Error \"%s \" writing tags, Exiftool output was %s", e, et.last_stderr)
 
