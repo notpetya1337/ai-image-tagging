@@ -2,10 +2,10 @@ import logging
 import os
 import sys
 from configparser import ConfigParser
-from tagging import Tagging
-from mongoclient import get_database
+from dependencies.vision import Tagging
+from dependencies.mongoclient import get_database
 
-from fileops import listdirs, get_image_md5, get_video_content_md5
+from dependencies.fileops import listdirs, get_image_md5, get_video_content_md5
 
 # initialize logger
 logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)

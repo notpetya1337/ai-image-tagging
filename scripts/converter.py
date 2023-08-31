@@ -5,7 +5,7 @@ import sys
 import time
 import datetime
 from configparser import ConfigParser
-from fileops import listdirs, listvideos
+from dependencies.fileops import listdirs, listvideos
 
 # initialize logger
 logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)

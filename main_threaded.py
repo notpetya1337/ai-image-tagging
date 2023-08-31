@@ -1,20 +1,22 @@
+import datetime
+import json
 import logging
 import os
 import sys
-import time
-import datetime
-from configparser import ConfigParser
-from tagging import Tagging
-from mongoclient import get_database
-import pymongo
-import json
 import threading
-from videotagging import VideoData
-from fileops import listdirs, listimages, listvideos, \
+import time
+from configparser import ConfigParser
+
+import pymongo
+
+from dependencies.fileops import listdirs, listimages, listvideos, \
     get_image_md5, get_image_content, get_video_content, get_video_content_md5
+from dependencies.mongoclient import get_database
+from dependencies.vision import Tagging
+from dependencies.vision_video import VideoData
 
 # initialize logger
-logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
+logging.basicConfig(stream=sys.stderr, level=logging.INFO)
 logging.getLogger('PIL').setLevel(logging.ERROR)
 logging.debug("logging started")
 logger = logging.getLogger(__name__)
@@ -29,7 +31,6 @@ mongovideocollection = config.get('storage', 'mongovideocollection')
 process_videos = config.getboolean('storage', 'process_videos')
 process_images = config.getboolean('storage', 'process_images')
 
-
 # initialize DBs
 currentdb = get_database()
 collection = currentdb[mongocollection]
@@ -38,8 +39,7 @@ videocollection = currentdb[mongovideocollection]
 collection.create_index([('md5', pymongo.TEXT)], name='md5_index', unique=True)
 collection.create_index('vision_tags')
 screenshotcollection.create_index([('md5', pymongo.TEXT)], name='md5_index', unique=True)
-videocollection.create_index([('content_md5', pymongo.TEXT)], name='content_md5_index')
-videocollection.create_index('md5')
+videocollection.create_index('content_md5')
 videocollection.create_index('vision_tags')
 
 # Initialize variables
@@ -114,6 +114,64 @@ def create_mongovideoentry(video_content, video_content_md5, vidpath_array, relp
     return mongo_entry
 
 
+def mongo_processimage(imagepath, workingcollection, subdiv, rootdir, is_screenshot):
+    im_md5 = get_image_md5(imagepath)
+    relpath = os.path.relpath(imagepath, rootdir)
+    # if MD5 is not in MongoDB
+    if workingcollection.find_one({"md5": im_md5}, {"md5": 1}) is None:
+        image_content = get_image_content(imagepath)
+        imagepath_array = [imagepath]
+        relpath_array = [relpath]
+        mongo_entry = create_mongoimageentry(image_content, im_md5, imagepath_array, relpath_array,
+                                             is_screenshot, subdiv)
+        workingcollection.insert_one(mongo_entry)
+        logger.info("Added new entry in MongoDB for image %s \n", imagepath)
+    # if MD5 is in MongoDB
+    else:
+        # if path is not in MongoDB
+        if workingcollection.find_one({"md5": im_md5, "relativepath": relpath},
+                                      {"md5": 1, "relativepath": 1}) is None:
+            workingcollection.update_one({"md5": im_md5},
+                                         {"$addToSet": {"path": imagepath, "relativepath": relpath}})
+            logger.info("Added path in MongoDB for duplicate image %s", imagepath)
+        # if path is in MongoDB
+        else:
+            logger.info("Image %s is in MongoDB", imagepath)
+
+
+def mongo_processvideo(videopath, subdiv, rootdir):
+    video_content_md5 = str(get_video_content_md5(videopath))
+    relpath = os.path.relpath(videopath, rootdir)
+    # if content MD5 is not in Mongo
+    if videocollection.find_one({"content_md5": video_content_md5}, {"content_md5": 1}) is None:
+        try:
+            logger.info("Processing video %s", relpath)
+            videopath_array = [videopath]
+            video_content = get_video_content(videopath)
+            relpath_array = [relpath]
+            mongo_entry = create_mongovideoentry(video_content, video_content_md5,
+                                                 videopath_array, relpath_array, subdiv)
+            logger.info("Generated MongoDB entry: %s", mongo_entry)
+            # noinspection PyUnresolvedReferences
+            videocollection.insert_one(mongo_entry)
+            logger.info("Added new entry in MongoDB for video %s \n", videopath)
+        # TODO: make this catch a more specific error
+        except OSError as e:
+            logger.error("Network error %s processing %s", e, relpath)
+    # if content MD5 is in MongoDB
+    else:
+        # if path is not in MongoDB
+        if videocollection.find_one({"content_md5": video_content_md5, "relativepath": relpath},
+                                    {"content_md5": 1, "relativepath": 1}) is None:
+
+            videocollection.update_one({"content_md5": video_content_md5},
+                                       {"$addToSet": {"path": videopath, "relativepath": relpath}})
+            logger.info("Added path in MongoDB for duplicate video %s", videopath)
+        # if path is in MongoDB
+        else:
+            logger.info("Video %s is in MongoDB", videopath)
+
+
 def mongo_processimagefolder(workingdir, workingcollection, is_screenshot, subdiv):
     global imagecount, imagecount_lock
     rootdir = config.get('divs', subdiv)
@@ -121,28 +179,7 @@ def mongo_processimagefolder(workingdir, workingcollection, is_screenshot, subdi
     for imagepath in workingimages:
         with imagecount_lock:
             imagecount += 1
-        im_md5 = get_image_md5(imagepath)
-        relpath = os.path.relpath(imagepath, rootdir)
-        # if MD5 is not in MongoDB
-        if workingcollection.find_one({"md5": im_md5}, {"md5": 1}) is None:
-            image_content = get_image_content(imagepath)
-            imagepath_array = [imagepath]
-            relpath_array = [relpath]
-            mongo_entry = create_mongoimageentry(image_content, im_md5, imagepath_array, relpath_array,
-                                                 is_screenshot, subdiv)
-            workingcollection.insert_one(mongo_entry)
-            logger.info("Added new entry in MongoDB for image %s \n", imagepath)
-        # if MD5 is in MongoDB
-        else:
-            # if path is not in MongoDB
-            if workingcollection.find_one({"md5": im_md5, "relativepath": relpath},
-                                          {"md5": 1, "relativepath": 1}) is None:
-                workingcollection.update_one({"md5": im_md5},
-                                             {"$addToSet": {"path": imagepath, "relativepath": relpath}})
-                logger.info("Added path in MongoDB for duplicate image %s", imagepath)
-            # if path is in MongoDB
-            else:
-                logger.info("Image %s is in MongoDB", imagepath)
+        mongo_processimage(imagepath, workingcollection, subdiv, rootdir, is_screenshot)
 
 
 def mongo_processvideofolder(workingdir, subdiv):
@@ -152,40 +189,7 @@ def mongo_processvideofolder(workingdir, subdiv):
     for videopath in workingvideos:
         with videocount_lock:
             videocount += 1
-        video_content_md5 = str(get_video_content_md5(videopath))
-        relpath = os.path.relpath(videopath, rootdir)
-        # if content MD5 is not in Mongo
-        if videocollection.find_one({"content_md5": video_content_md5}, {"content_md5": 1}) is None:
-            try:
-                logger.info("Processing video %s", relpath)
-                videopath_array = [videopath]
-                video_content = get_video_content(videopath)
-                relpath_array = [relpath]
-                mongo_entry = create_mongovideoentry(video_content, video_content_md5,
-                                                     videopath_array, relpath_array, subdiv)
-                logger.info("Generated MongoDB entry: %s", mongo_entry)
-                # noinspection PyUnresolvedReferences
-                videocollection.insert_one(mongo_entry)
-                logger.info("Added new entry in MongoDB for video %s \n", videopath)
-                continue
-            # TODO: make this catch a more specific error
-            except OSError as e:
-                logger.error("Network error %s processing %s", e, relpath)
-                continue
-        # if content MD5 is in MongoDB
-        else:
-            # if path is not in MongoDB
-            if videocollection.find_one({"content_md5": video_content_md5, "relativepath": relpath},
-                                        {"content_md5": 1, "relativepath": 1}) is None:
-
-                videocollection.update_one({"content_md5": video_content_md5},
-                                           {"$addToSet": {"path": videopath, "relativepath": relpath}})
-                logger.info("Added path in MongoDB for duplicate video %s", videopath)
-                continue
-            # if path is in MongoDB
-            else:
-                logger.info("Video %s is in MongoDB", videopath)
-                continue
+        mongo_processvideo(videopath, subdiv, rootdir)
 
 
 def main():

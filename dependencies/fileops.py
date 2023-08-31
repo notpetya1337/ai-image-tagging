@@ -84,8 +84,12 @@ def get_video_content_md5(video_path):
         out, err = process.communicate()
         md5list = re.findall(r"MD5=([a-fA-F\d]{32})", str(out))
         logger.info("Got content MD5 for video %s: %s", video_path, md5list)
-        md5 = md5list[0]
+        try:
+            md5 = md5list[0]
+        except IndexError:
+            md5 = "corrupt"
+            logger.error("Exception getting MD5 for path %s with ffmpeg: %s", video_path, err, exc_info=True)
     except Exception as e:
-        logger.error("Unhandled exception getting MD5 for path %s with ffmpeg: %s", video_path, e)
+        logger.error("Unhandled exception getting MD5 for path %s with ffmpeg: %s", video_path, exc_info=True)
         md5 = "corrupt"
     return md5

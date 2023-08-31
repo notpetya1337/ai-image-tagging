@@ -1,15 +1,17 @@
+import datetime
 import logging
 import os
 import sys
 import time
-import datetime
 from configparser import ConfigParser
-from tagging import Tagging
-from mongoclient import get_database
+
 import pymongo
-from videotagging import VideoData
-from fileops import listdirs, listimages, listvideos, \
+
+from dependencies.fileops import listdirs, listimages, listvideos, \
     get_image_md5, get_image_content, get_video_content, get_video_content_md5
+from dependencies.mongoclient import get_database
+from dependencies.vision import Tagging
+from dependencies.vision_video import VideoData
 
 # initialize logger
 logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
@@ -81,11 +83,12 @@ def main():
                     try:
                         safe = tagging.get_explicit(image_binary=image_content)
                         workingcollection.update_one({"md5": im_md5},
-                                                     {"$set": {"explicit_detection": [{"adult": f"{likelihood_name[safe.adult]}",
-                                                                                       "medical": f"{likelihood_name[safe.medical]}",
-                                                                                       "spoofed": f"{likelihood_name[safe.spoof]}",
-                                                                                       "violence": f"{likelihood_name[safe.violence]}",
-                                                                                       "racy": f"{likelihood_name[safe.racy]}"}]}})
+                                                     {"$set": {"explicit_detection": [
+                                                         {"adult": f"{likelihood_name[safe.adult]}",
+                                                          "medical": f"{likelihood_name[safe.medical]}",
+                                                          "spoofed": f"{likelihood_name[safe.spoof]}",
+                                                          "violence": f"{likelihood_name[safe.violence]}",
+                                                          "racy": f"{likelihood_name[safe.racy]}"}]}})
                     except (pymongo.errors.ServerSelectionTimeoutError, pymongo.errors.AutoReconnect) as e:
                         logger.warning("Connection error: %s", e)
                         time.sleep(10)
@@ -100,7 +103,8 @@ def main():
                 video_content_md5 = str(get_video_content_md5(videopath))
                 relpath = os.path.relpath(videopath, rootdir)
                 # if MD5 is in MongoDB and explicit tags aren't:
-                if workingcollection.find_one({"$and": [{"content_md5": video_content_md5}, {"explicit_detection": {"$exists": False}}]}):
+                if workingcollection.find_one(
+                        {"$and": [{"content_md5": video_content_md5}, {"explicit_detection": {"$exists": False}}]}):
                     # noinspection PyUnresolvedReferences
                     try:
                         logger.info("Processing video %s", relpath)

@@ -1,14 +1,16 @@
+import datetime
 import logging
 import sys
 import time
-import datetime
 from configparser import ConfigParser
-from tagging import Tagging
-from mongoclient import get_database
+
+import exiftool
 import pymongo
 from bson.json_util import dumps, loads
-import exiftool
-from fileops import listdirs, listimages, listvideos, get_image_md5, get_video_content_md5
+
+from dependencies.fileops import listdirs, listimages, listvideos, get_image_md5, get_video_content_md5
+from dependencies.mongoclient import get_database
+from dependencies.vision import Tagging
 
 # initialize logger
 logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
@@ -33,7 +35,6 @@ mongoscreenshotcollection = config.get('storage', 'mongoscreenshotcollection')
 mongovideocollection = config.get('storage', 'mongovideocollection')
 process_videos = config.getboolean('storage', 'process_videos')
 process_images = config.getboolean('storage', 'process_images')
-check_mongo = config.getboolean('storage', 'check_mongo')
 
 # initialize DBs
 currentdb = get_database()
@@ -98,10 +99,13 @@ def main():
                     else:
                         # noinspection PyUnresolvedReferences
                         try:
-                            explicit_mongo = workingcollection.find_one({"md5": im_md5}, {"explicit_detection": 1, "_id": 0})
+                            explicit_mongo = workingcollection.find_one({"md5": im_md5},
+                                                                        {"explicit_detection": 1, "_id": 0})
                             detobj = explicit_mongo['explicit_detection']
                             detobj = detobj[0]
-                            detection_results = f"Adult: {detobj['adult']}", f"Medical: {detobj['medical']}", f"Spoofed: {detobj['spoofed']}", f"Violence: {detobj['violence']}", f"Racy: {detobj['racy']}"
+                            detection_results = (f"Adult: {detobj['adult']}", f"Medical: {detobj['medical']}",
+                                                 f"Spoofed: {detobj['spoofed']}", f"Violence: {detobj['violence']}",
+                                                 f"Racy: {detobj['racy']}")
                             break
                         except (pymongo.errors.ServerSelectionTimeoutError, pymongo.errors.AutoReconnect) as e:
                             logger.warning("Connection error: %s", e)
@@ -127,7 +131,8 @@ def main():
                     logger.info("Text is %s", text_list)
                     if text_list:
                         try:
-                            et.set_tags(imagepath, tags={"xmp:Title": text_list}, params=["-P", "-overwrite_original", "-ec"])
+                            et.set_tags(imagepath, tags={"xmp:Title": text_list},
+                                        params=["-P", "-overwrite_original", "-ec"])
                         except exiftool.exceptions.ExifToolExecuteError as e:
                             logger.warning("Error %s writing tags", e)
                 else:
