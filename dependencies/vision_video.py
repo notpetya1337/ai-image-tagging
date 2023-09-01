@@ -1,4 +1,5 @@
 import io
+import logging
 import os
 from configparser import ConfigParser
 
@@ -13,6 +14,8 @@ google_project = config.get('image-recognition', 'google-project')
 tags_backend = config.get('image-recognition', 'backend')
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_credentials
 os.environ["GOOGLE_CLOUD_PROJECT"] = google_project
+
+logger = logging.getLogger(__name__)
 
 
 class VideoData:
@@ -67,9 +70,9 @@ class VideoData:
         operation = video_client.annotate_video(
             request={"features": features, "input_content": video_binary, "video_context": video_context}
         )
-        print("\nProcessing video for all annotations:")
+        logger.info("Processing video for all annotations:")
         result = operation.result(timeout=600)
-        print("\nFinished processing.")
+        logger.info("Finished processing.")
         for frame in result.annotation_results[0].explicit_annotation.frames:
             likelihood = videointelligence.Likelihood(frame.pornography_likelihood)
             self.pornography.append("pornography: {}".format(likelihood.name))
