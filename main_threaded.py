@@ -1,3 +1,4 @@
+import concurrent.futures
 import datetime
 import json
 import logging
@@ -20,6 +21,7 @@ logging.basicConfig(stream=sys.stderr, level=logging.INFO)
 logging.getLogger('PIL').setLevel(logging.ERROR)
 logging.debug("logging started")
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 # read config
 config = ConfigParser()
@@ -30,6 +32,8 @@ mongoscreenshotcollection = config.get('storage', 'mongoscreenshotcollection')
 mongovideocollection = config.get('storage', 'mongovideocollection')
 process_videos = config.getboolean('storage', 'process_videos')
 process_images = config.getboolean('storage', 'process_images')
+logging_level = config.get('logging', 'loglevel')
+threads = config.getint('properties', 'threads')
 
 # initialize DBs
 currentdb = get_database()
@@ -195,6 +199,7 @@ def mongo_processvideofolder(workingdir, subdiv):
 def main():
     global foldercount
     start_time = time.time()
+    pool = concurrent.futures.ThreadPoolExecutor(max_workers=threads)
     for div in subdivs:
         rootdir = config.get('divs', div)
         allfolders = listdirs(rootdir)
@@ -209,25 +214,12 @@ def main():
                 else:
                     is_screenshot = 0
                     workingcollection = collection
-                t = threading.Thread(target=mongo_processimagefolder, args=[workingdir, workingcollection,
-                                                                            is_screenshot, div])
-                t.start()
+                pool.submit(mongo_processimagefolder(workingdir, workingcollection, is_screenshot, div))
             if process_videos:
-                t = threading.Thread(target=mongo_processvideofolder, args=[workingdir, div])
-                t.start()
+                pool.submit(mongo_processvideofolder(workingdir, div))
 
     # Wait until all threads exit
-    for thread in threading.enumerate():
-        if thread.daemon:
-            continue
-        try:
-            thread.join()
-        except RuntimeError as err:
-            if 'cannot join current thread' in err.args[0]:
-                # catches main thread
-                continue
-            else:
-                raise
+    pool.shutdown(wait=True)
     elapsed_time = time.time() - start_time
     final_time = str(datetime.timedelta(seconds=elapsed_time))
     logger.info("All entries processed. Root divs: %s, Folder count: %s", subdivs, foldercount)
