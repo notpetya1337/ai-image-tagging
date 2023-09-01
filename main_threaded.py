@@ -201,6 +201,7 @@ def main():
         for _ in allfolders:  # spawn thread per entry here
             workingdir = allfolders.pop(0)
             foldercount += 1
+            # TODO: limit number of threads
             if process_images:
                 if workingdir.lower().find("screenshot") != -1:
                     is_screenshot = 1
@@ -215,24 +216,23 @@ def main():
                 t = threading.Thread(target=mongo_processvideofolder, args=[workingdir, div])
                 t.start()
 
-        # Wait until all threads exit
-        for thread in threading.enumerate():
-            if thread.daemon:
+    # Wait until all threads exit
+    for thread in threading.enumerate():
+        if thread.daemon:
+            continue
+        try:
+            thread.join()
+        except RuntimeError as err:
+            if 'cannot join current thread' in err.args[0]:
+                # catches main thread
                 continue
-            try:
-                thread.join()
-            except RuntimeError as err:
-                if 'cannot join current thread' in err.args[0]:
-                    # catches main thread
-                    continue
-                else:
-                    raise
-            elapsed_time = time.time() - start_time
-            final_time = str(datetime.timedelta(seconds=elapsed_time))
-            logger.info("All entries processed. Root divs: %s, Folder count: %s", subdivs, foldercount)
-            print(imagecount, "images and ", videocount, "videos processed.")
-            print("Processing took ", final_time)
-            break
+            else:
+                raise
+    elapsed_time = time.time() - start_time
+    final_time = str(datetime.timedelta(seconds=elapsed_time))
+    logger.info("All entries processed. Root divs: %s, Folder count: %s", subdivs, foldercount)
+    print(imagecount, "images and ", videocount, "videos processed.")
+    print("Processing took ", final_time)
 
 
 if __name__ == "__main__":
