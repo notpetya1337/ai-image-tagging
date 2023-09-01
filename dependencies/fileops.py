@@ -80,7 +80,7 @@ def get_video_content_md5(video_path):
             process = subprocess.Popen('cmd /c ffmpeg.exe -i "{vpath}" -map 0:v -f md5 -'.format(vpath=video_path),
                                        shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         else:
-            process = subprocess.Popen('bash -c \'ffmpeg -i "{vpath}" -map 0:v -f md5 -\''.format(vpath=video_path),
+            process = subprocess.Popen('ffmpeg -i "{vpath}" -map 0:v -f md5 -'.format(vpath=video_path),
                                        shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = process.communicate()
         md5list = re.findall(r"MD5=([a-fA-F\d]{32})", str(out))
