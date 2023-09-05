@@ -10,13 +10,7 @@ from configparser import ConfigParser
 import exiftool
 from bson.json_util import dumps, loads
 
-from dependencies.fileops import (
-    listdirs,
-    listimages,
-    listvideos,
-    get_image_md5,
-    get_video_content_md5,
-)
+from dependencies.fileops import (get_image_md5, get_video_content_md5, listdirs, listimages, listvideos)
 from dependencies.mongoclient import get_database
 from dependencies.vision import Tagging
 
@@ -62,18 +56,12 @@ videocount_lock = threading.Lock()
 
 
 def getimagetags(md5, workingcollection, is_screenshot):
-    text = loads(
-        dumps(workingcollection.find_one({"md5": md5}, {"vision_text": 1, "_id": 0}))
-    )
-    tagsjson = loads(
-        dumps(workingcollection.find_one({"md5": md5}, {"vision_tags": 1, "_id": 0}))
-    )
+    text = loads(dumps(workingcollection.find_one({"md5": md5}, {"vision_text": 1, "_id": 0})))
+    tagsjson = loads(dumps(workingcollection.find_one({"md5": md5}, {"vision_tags": 1, "_id": 0})))
     if is_screenshot == 1:
         explicit_results = []
     else:
-        explicit_mongo = workingcollection.find_one(
-            {"md5": md5}, {"explicit_detection": 1, "_id": 0}
-        )
+        explicit_mongo = workingcollection.find_one({"md5": md5}, {"explicit_detection": 1, "_id": 0})
         if explicit_mongo:
             detobj = explicit_mongo["explicit_detection"]
             detobj = detobj[0]
@@ -102,28 +90,14 @@ def getimagetags(md5, workingcollection, is_screenshot):
 
 
 def getvideotags(content_md5):
-    text_array = loads(
-        dumps(
-            videocollection.find_one(
-                {"content_md5": content_md5}, {"vision_text": 1, "_id": 0}
-            )
-        )
-    )
+    text_array = loads(dumps(videocollection.find_one({"content_md5": content_md5}, {"vision_text": 1, "_id": 0})))
     try:
-        explicit_mongo = videocollection.find_one(
-            {"content_md5": content_md5}, {"explicit_detection": 1, "_id": 0}
-        )
+        explicit_mongo = videocollection.find_one({"content_md5": content_md5}, {"explicit_detection": 1, "_id": 0})
         detobj = explicit_mongo["explicit_detection"]
     except (KeyError, TypeError):
         logger.warning("Explicit tags not found for %s", content_md5)
         detobj = []
-    tagsjson = loads(
-        dumps(
-            videocollection.find_one(
-                {"content_md5": content_md5}, {"vision_tags": 1, "_id": 0}
-            )
-        )
-    )
+    tagsjson = loads(dumps(videocollection.find_one({"content_md5": content_md5}, {"vision_tags": 1, "_id": 0})))
     if tagsjson:
         tagsjson["vision_tags"].extend(detobj)
         tags_list = tagsjson.get("vision_tags")
@@ -133,11 +107,7 @@ def getvideotags(content_md5):
     if text_array:
         text_list = (" ".join(text_array.get("vision_text"))).replace("\n", "\\n")
         # Truncate text at set number of characters
-        text_list = (
-            (text_list[:maxlength] + " truncated...")
-            if len(text_list) > maxlength
-            else text_list
-        )
+        text_list = ((text_list[:maxlength] + " truncated...") if len(text_list) > maxlength else text_list)
         logger.info("Text is %s", text_list)
     else:
         text_list = []
@@ -151,45 +121,27 @@ def writeimagetags(path, tags, text, et):
     if tags and text:
         try:
             # TODO: check back and see if -ec is necessary
-            et.set_tags(
-                path,
-                tags={"Subject": tags, "xmp:Title": text},
-                params=["-P", "-overwrite_original"],
-            )
+            et.set_tags(path, tags={"Subject": tags, "xmp:Title": text}, params=["-P", "-overwrite_original"])
         except exiftool.exceptions.ExifToolExecuteError as e:
-            logger.warning(
-                'Error "%s " writing tags, Exiftool output was %s', e, et.last_stderr
-            )
+            logger.warning('Error "%s " writing tags, Exiftool output was %s', e, et.last_stderr)
     elif tags:
         try:
-            et.set_tags(
-                path, tags={"Subject": tags}, params=["-P", "-overwrite_original"]
-            )
+            et.set_tags(path, tags={"Subject": tags}, params=["-P", "-overwrite_original"])
         except exiftool.exceptions.ExifToolExecuteError as e:
-            logger.warning(
-                'Error "%s " writing tags, Exiftool output was %s', e, et.last_stderr
-            )
+            logger.warning('Error "%s " writing tags, Exiftool output was %s', e, et.last_stderr)
 
 
 def writevideotags(path, tags, text, et):
     if tags:
         try:
-            et.set_tags(
-                path, tags={"Subject": tags}, params=["-P", "-overwrite_original"]
-            )
+            et.set_tags(path, tags={"Subject": tags}, params=["-P", "-overwrite_original"])
         except exiftool.exceptions.ExifToolExecuteError as e:
-            logger.warning(
-                'Error "%s " writing tags, Exiftool output was %s', e, et.last_stderr
-            )
+            logger.warning('Error "%s " writing tags, Exiftool output was %s', e, et.last_stderr)
     if text:
         try:
-            et.set_tags(
-                path, tags={"Title": text}, params=["-P", "-overwrite_original"]
-            )
+            et.set_tags(path, tags={"Title": text}, params=["-P", "-overwrite_original"])
         except exiftool.exceptions.ExifToolExecuteError as e:
-            logger.warning(
-                'Error "%s " writing tags, Exiftool output was %s', e, et.last_stderr
-            )
+            logger.warning('Error "%s " writing tags, Exiftool output was %s', e, et.last_stderr)
 
 
 def processimagefolder(workingdir, workingcollection, is_screenshot, et):
@@ -219,9 +171,7 @@ def main():
     global foldercount, folderlist
     start_time = time.time()
     pool = concurrent.futures.ThreadPoolExecutor(max_workers=threads)
-    et = exiftool.ExifToolHelper(
-        logger=logging.getLogger(__name__).setLevel(logging.INFO), encoding="utf-8"
-    )
+    et = exiftool.ExifToolHelper(logger=logging.getLogger(__name__).setLevel(logging.INFO), encoding="utf-8")
     for div in subdivs:
         rootdir = config.get("divs", div)
         allfolders = listdirs(rootdir)
@@ -241,9 +191,7 @@ def main():
                     logger=logging.getLogger(__name__).setLevel(logging.INFO),
                     encoding="utf-8",
                 )
-                pool.submit(
-                    processimagefolder(workingdir, workingcollection, is_screenshot, et)
-                )
+                pool.submit(processimagefolder(workingdir, workingcollection, is_screenshot, et))
             if process_videos:
                 et = exiftool.ExifToolHelper(
                     logger=logging.getLogger(__name__).setLevel(logging.INFO),
@@ -255,12 +203,11 @@ def main():
     elapsed_time = time.time() - start_time
     final_time = str(datetime.timedelta(seconds=elapsed_time))
 
-    logger.info(
-        "All entries processed. Root divs: %s, Folder count: %s", subdivs, foldercount
-    )
+    logger.info("All entries processed. Root divs: %s, Folder count: %s", subdivs, foldercount)
     logger.info("Folders processed: %s", folderlist)
     print(imagecount, "images and ", videocount, "videos processed.")
     print("Processing took ", final_time)
 
 
-main()
+if __name__ == "__main__":
+    main()

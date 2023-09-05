@@ -1,0 +1,13 @@
+[Unit]
+# Human readable name of the unit
+Description=Filesystem Watcher service
+After=multi-user.target
+[Service]
+User=dummy
+Type=simple
+Restart=always
+WorkingDirectory=/home/dummy/path
+ExecStart=/home/dummy/path/venv/bin/python3 /home/dummy/path/watcher.py
+Environment=PYTHONUNBUFFERED=1
+[Install]
+WantedBy=multi-user.target
