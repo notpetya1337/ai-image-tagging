@@ -10,41 +10,50 @@ from configparser import ConfigParser
 
 import pymongo
 
-from dependencies.fileops import listdirs, listimages, listvideos, \
-    get_image_md5, get_image_content, get_video_content, get_video_content_md5
+from dependencies.fileops import (
+    listdirs,
+    listimages,
+    listvideos,
+    get_image_md5,
+    get_image_content,
+    get_video_content,
+    get_video_content_md5,
+)
 from dependencies.mongoclient import get_database
 from dependencies.vision import Tagging
 from dependencies.vision_video import VideoData
 
 # initialize logger
 logging.basicConfig(stream=sys.stderr, level=logging.INFO)
-logging.getLogger('PIL').setLevel(logging.ERROR)
+logging.getLogger("PIL").setLevel(logging.ERROR)
 logging.debug("logging started")
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 # read config
 config = ConfigParser()
-config.read('config.ini')
-subdivs = json.loads(config.get('properties', 'subdivs'))
-mongocollection = config.get('storage', 'mongocollection')
-mongoscreenshotcollection = config.get('storage', 'mongoscreenshotcollection')
-mongovideocollection = config.get('storage', 'mongovideocollection')
-process_videos = config.getboolean('storage', 'process_videos')
-process_images = config.getboolean('storage', 'process_images')
-logging_level = config.get('logging', 'loglevel')
-threads = config.getint('properties', 'threads')
+config.read("config.ini")
+subdivs = json.loads(config.get("properties", "subdivs"))
+mongocollection = config.get("storage", "mongocollection")
+mongoscreenshotcollection = config.get("storage", "mongoscreenshotcollection")
+mongovideocollection = config.get("storage", "mongovideocollection")
+process_videos = config.getboolean("storage", "process_videos")
+process_images = config.getboolean("storage", "process_images")
+logging_level = config.get("logging", "loglevel")
+threads = config.getint("properties", "threads")
 
 # initialize DBs
 currentdb = get_database()
 collection = currentdb[mongocollection]
 screenshotcollection = currentdb[mongoscreenshotcollection]
 videocollection = currentdb[mongovideocollection]
-collection.create_index([('md5', pymongo.TEXT)], name='md5_index', unique=True)
-collection.create_index('vision_tags')
-screenshotcollection.create_index([('md5', pymongo.TEXT)], name='md5_index', unique=True)
-videocollection.create_index('content_md5')
-videocollection.create_index('vision_tags')
+collection.create_index([("md5", pymongo.TEXT)], name="md5_index", unique=True)
+collection.create_index("vision_tags")
+screenshotcollection.create_index(
+    [("md5", pymongo.TEXT)], name="md5_index", unique=True
+)
+videocollection.create_index("content_md5")
+videocollection.create_index("vision_tags")
 
 # Initialize variables
 tagging = Tagging(config)
@@ -65,7 +74,9 @@ likelihood_name = (
 )
 
 
-def create_mongoimageentry(image_content, im_md5, image_array, relpath_array, is_screenshot, subdiv):
+def create_imagedoc(
+    image_content, im_md5, image_array, relpath_array, is_screenshot, subdiv
+):
     if is_screenshot == 1:
         text = tagging.get_text(image_binary=image_content)
         mongo_entry = {
@@ -75,7 +86,7 @@ def create_mongoimageentry(image_content, im_md5, image_array, relpath_array, is
             "path": image_array,
             "subdiv": subdiv,
             "relativepath": relpath_array,
-            "is_screenshot": is_screenshot
+            "is_screenshot": is_screenshot,
         }
     elif is_screenshot == 0:
         tags = tagging.get_tags(image_binary=image_content)
@@ -85,15 +96,19 @@ def create_mongoimageentry(image_content, im_md5, image_array, relpath_array, is
             "md5": im_md5,
             "vision_tags": tags,
             "vision_text": text[0],
-            "explicit_detection": [{"adult": f"{likelihood_name[safe.adult]}",
-                                    "medical": f"{likelihood_name[safe.medical]}",
-                                    "spoofed": f"{likelihood_name[safe.spoof]}",
-                                    "violence": f"{likelihood_name[safe.violence]}",
-                                    "racy": f"{likelihood_name[safe.racy]}"}],
+            "explicit_detection": [
+                {
+                    "adult": f"{likelihood_name[safe.adult]}",
+                    "medical": f"{likelihood_name[safe.medical]}",
+                    "spoofed": f"{likelihood_name[safe.spoof]}",
+                    "violence": f"{likelihood_name[safe.violence]}",
+                    "racy": f"{likelihood_name[safe.racy]}",
+                }
+            ],
             "path": image_array,
             "subdiv": subdiv,
             "relativepath": relpath_array,
-            "is_screenshot": is_screenshot
+            "is_screenshot": is_screenshot,
         }
     else:
         logger.error("%s did not match is_screenshot or is_video", relpath_array)
@@ -102,7 +117,9 @@ def create_mongoimageentry(image_content, im_md5, image_array, relpath_array, is
     return mongo_entry
 
 
-def create_mongovideoentry(video_content, video_content_md5, vidpath_array, relpath_array, subdiv):
+def create_videodoc(
+    video_content, video_content_md5, vidpath_array, relpath_array, subdiv
+):
     videoobj = VideoData()
     videoobj.video_vision_all(video_content)
     mongo_entry = {
@@ -118,7 +135,7 @@ def create_mongovideoentry(video_content, video_content_md5, vidpath_array, relp
     return mongo_entry
 
 
-def mongo_processimage(imagepath, workingcollection, subdiv, rootdir, is_screenshot):
+def process_image(imagepath, workingcollection, subdiv, is_screenshot, rootdir=""):
     im_md5 = get_image_md5(imagepath)
     relpath = os.path.relpath(imagepath, rootdir)
     # if MD5 is not in MongoDB
@@ -126,35 +143,46 @@ def mongo_processimage(imagepath, workingcollection, subdiv, rootdir, is_screens
         image_content = get_image_content(imagepath)
         imagepath_array = [imagepath]
         relpath_array = [relpath]
-        mongo_entry = create_mongoimageentry(image_content, im_md5, imagepath_array, relpath_array,
-                                             is_screenshot, subdiv)
+        mongo_entry = create_imagedoc(
+            image_content, im_md5, imagepath_array, relpath_array, is_screenshot, subdiv
+        )
         workingcollection.insert_one(mongo_entry)
         logger.info("Added new entry in MongoDB for image %s \n", imagepath)
     # if MD5 is in MongoDB
     else:
         # if path is not in MongoDB
-        if workingcollection.find_one({"md5": im_md5, "relativepath": relpath},
-                                      {"md5": 1, "relativepath": 1}) is None:
-            workingcollection.update_one({"md5": im_md5},
-                                         {"$addToSet": {"path": imagepath, "relativepath": relpath}})
+        if (
+            workingcollection.find_one(
+                {"md5": im_md5, "relativepath": relpath}, {"md5": 1, "relativepath": 1}
+            )
+            is None
+        ):
+            workingcollection.update_one(
+                {"md5": im_md5},
+                {"$addToSet": {"path": imagepath, "relativepath": relpath}},
+            )
             logger.info("Added path in MongoDB for duplicate image %s", imagepath)
         # if path is in MongoDB
         else:
             logger.info("Image %s is in MongoDB", imagepath)
 
 
-def mongo_processvideo(videopath, subdiv, rootdir):
+def process_video(videopath, subdiv, rootdir=""):
     video_content_md5 = str(get_video_content_md5(videopath))
     relpath = os.path.relpath(videopath, rootdir)
     # if content MD5 is not in Mongo
-    if videocollection.find_one({"content_md5": video_content_md5}, {"content_md5": 1}) is None:
+    if (
+        videocollection.find_one({"content_md5": video_content_md5}, {"content_md5": 1})
+        is None
+    ):
         try:
             logger.info("Processing video %s", relpath)
             videopath_array = [videopath]
             video_content = get_video_content(videopath)
             relpath_array = [relpath]
-            mongo_entry = create_mongovideoentry(video_content, video_content_md5,
-                                                 videopath_array, relpath_array, subdiv)
+            mongo_entry = create_videodoc(
+                video_content, video_content_md5, videopath_array, relpath_array, subdiv
+            )
             logger.info("Generated MongoDB entry: %s", mongo_entry)
             # noinspection PyUnresolvedReferences
             videocollection.insert_one(mongo_entry)
@@ -165,35 +193,41 @@ def mongo_processvideo(videopath, subdiv, rootdir):
     # if content MD5 is in MongoDB
     else:
         # if path is not in MongoDB
-        if videocollection.find_one({"content_md5": video_content_md5, "relativepath": relpath},
-                                    {"content_md5": 1, "relativepath": 1}) is None:
-
-            videocollection.update_one({"content_md5": video_content_md5},
-                                       {"$addToSet": {"path": videopath, "relativepath": relpath}})
+        if (
+            videocollection.find_one(
+                {"content_md5": video_content_md5, "relativepath": relpath},
+                {"content_md5": 1, "relativepath": 1},
+            )
+            is None
+        ):
+            videocollection.update_one(
+                {"content_md5": video_content_md5},
+                {"$addToSet": {"path": videopath, "relativepath": relpath}},
+            )
             logger.info("Added path in MongoDB for duplicate video %s", videopath)
         # if path is in MongoDB
         else:
             logger.info("Video %s is in MongoDB", videopath)
 
 
-def mongo_processimagefolder(workingdir, workingcollection, is_screenshot, subdiv):
+def process_image_folder(workingdir, workingcollection, is_screenshot, subdiv):
     global imagecount, imagecount_lock
-    rootdir = config.get('divs', subdiv)
+    rootdir = config.get("divs", subdiv)
     workingimages = listimages(workingdir, process_images)
     for imagepath in workingimages:
         with imagecount_lock:
             imagecount += 1
-        mongo_processimage(imagepath, workingcollection, subdiv, rootdir, is_screenshot)
+        process_image(imagepath, workingcollection, subdiv, is_screenshot, rootdir)
 
 
-def mongo_processvideofolder(workingdir, subdiv):
-    rootdir = config.get('divs', subdiv)
+def process_video_folder(workingdir, subdiv):
+    rootdir = config.get("divs", subdiv)
     global videocount, videocount_lock
     workingvideos = listvideos(workingdir, process_videos)
     for videopath in workingvideos:
         with videocount_lock:
             videocount += 1
-        mongo_processvideo(videopath, subdiv, rootdir)
+        process_video(videopath, subdiv, rootdir)
 
 
 def main():
@@ -201,7 +235,7 @@ def main():
     start_time = time.time()
     pool = concurrent.futures.ThreadPoolExecutor(max_workers=threads)
     for div in subdivs:
-        rootdir = config.get('divs', div)
+        rootdir = config.get("divs", div)
         allfolders = listdirs(rootdir)
         for _ in allfolders:  # spawn thread per entry here
             workingdir = allfolders.pop(0)
@@ -214,15 +248,21 @@ def main():
                 else:
                     is_screenshot = 0
                     workingcollection = collection
-                pool.submit(mongo_processimagefolder(workingdir, workingcollection, is_screenshot, div))
+                pool.submit(
+                    process_image_folder(
+                        workingdir, workingcollection, is_screenshot, div
+                    )
+                )
             if process_videos:
-                pool.submit(mongo_processvideofolder(workingdir, div))
+                pool.submit(process_video_folder(workingdir, div))
 
     # Wait until all threads exit
     pool.shutdown(wait=True)
     elapsed_time = time.time() - start_time
     final_time = str(datetime.timedelta(seconds=elapsed_time))
-    logger.info("All entries processed. Root divs: %s, Folder count: %s", subdivs, foldercount)
+    logger.warning(
+        "All entries processed. Root divs: %s, Folder count: %s", subdivs, foldercount
+    )
     print(imagecount, "images and ", videocount, "videos processed.")
     print("Processing took ", final_time)
 

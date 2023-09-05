@@ -1,18 +1,10 @@
 import logging
 import os
-import re
 
 import backoff
 from google.cloud import vision
 
 logger = logging.getLogger(__name__)
-
-
-def sanitize(s):
-    n = "Empty"
-    for i in s:
-        n = i.replace("\t", "    ")
-    return re.sub(r"[^ -~]", "", n)
 
 
 # noinspection PyUnusedLocal

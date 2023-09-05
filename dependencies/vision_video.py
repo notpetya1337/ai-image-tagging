@@ -7,11 +7,11 @@ from google.cloud import videointelligence
 
 # read config
 config = ConfigParser()
-config.read('config.ini')
+config.read("config.ini")
 path = r"placeholder"
-google_credentials = config.get('image-recognition', 'google-credentials')
-google_project = config.get('image-recognition', 'google-project')
-tags_backend = config.get('image-recognition', 'backend')
+google_credentials = config.get("image-recognition", "google-credentials")
+google_project = config.get("image-recognition", "google-project")
+tags_backend = config.get("image-recognition", "backend")
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_credentials
 os.environ["GOOGLE_CLOUD_PROJECT"] = google_project
 
@@ -29,14 +29,24 @@ class VideoData:
 
     def video_vision_all(self, video_binary):
         video_client = videointelligence.VideoIntelligenceServiceClient()
-        features = [videointelligence.Feature.LABEL_DETECTION, videointelligence.Feature.TEXT_DETECTION,
-                    videointelligence.Feature.SPEECH_TRANSCRIPTION,
-                    videointelligence.Feature.EXPLICIT_CONTENT_DETECTION]
-        vision_config = videointelligence.SpeechTranscriptionConfig(language_code="en-US",
-                                                                    enable_automatic_punctuation=True)
-        video_context = videointelligence.VideoContext(speech_transcription_config=vision_config)
+        features = [
+            videointelligence.Feature.LABEL_DETECTION,
+            videointelligence.Feature.TEXT_DETECTION,
+            videointelligence.Feature.SPEECH_TRANSCRIPTION,
+            videointelligence.Feature.EXPLICIT_CONTENT_DETECTION,
+        ]
+        vision_config = videointelligence.SpeechTranscriptionConfig(
+            language_code="en-US", enable_automatic_punctuation=True
+        )
+        video_context = videointelligence.VideoContext(
+            speech_transcription_config=vision_config
+        )
         operation = video_client.annotate_video(
-            request={"features": features, "input_content": video_binary, "video_context": video_context}
+            request={
+                "features": features,
+                "input_content": video_binary,
+                "video_context": video_context,
+            }
         )
         print("\nProcessing video for all annotations:")
         result = operation.result(timeout=600)
@@ -64,11 +74,18 @@ class VideoData:
     def video_vision_explicit(self, video_binary):
         video_client = videointelligence.VideoIntelligenceServiceClient()
         features = [videointelligence.Feature.EXPLICIT_CONTENT_DETECTION]
-        vision_config = videointelligence.SpeechTranscriptionConfig(language_code="en-US",
-                                                                    enable_automatic_punctuation=True)
-        video_context = videointelligence.VideoContext(speech_transcription_config=vision_config)
+        vision_config = videointelligence.SpeechTranscriptionConfig(
+            language_code="en-US", enable_automatic_punctuation=True
+        )
+        video_context = videointelligence.VideoContext(
+            speech_transcription_config=vision_config
+        )
         operation = video_client.annotate_video(
-            request={"features": features, "input_content": video_binary, "video_context": video_context}
+            request={
+                "features": features,
+                "input_content": video_binary,
+                "video_context": video_context,
+            }
         )
         logger.info("Processing video for all annotations:")
         result = operation.result(timeout=600)
