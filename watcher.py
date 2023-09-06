@@ -3,6 +3,7 @@ import logging
 import threading
 import time
 from configparser import ConfigParser
+import os
 
 import exiftool
 from watchdog.events import PatternMatchingEventHandler
@@ -122,6 +123,10 @@ if __name__ == "__main__":
     for i in subdivs:
         folder = config.get("divs", i)
         threading.Thread(target=OnMyWatch(folder, i).run).start()
+    if os.name == 'posix':
+        import sdnotify
+        n = sdnotify.SystemdNotifier()
+        n.notify("READY=1")
     # Wait until all threads exit
     for thread in threading.enumerate():
         if thread.daemon:
