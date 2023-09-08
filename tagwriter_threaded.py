@@ -8,10 +8,10 @@ import time
 from configparser import ConfigParser
 
 import exiftool
+import pymongo
 from bson.json_util import dumps, loads
 
 from dependencies.fileops import (get_image_md5, get_video_content_md5, listdirs, listimages, listvideos)
-from dependencies.mongoclient import get_database
 from dependencies.vision import Tagging
 
 # read config
@@ -26,6 +26,11 @@ process_images = config.getboolean("storage", "process_images")
 logging_level = config.get("logging", "loglevel")
 maxlength = config.getint("properties", "maxlength")
 threads = config.getint("properties", "threads")
+connectstring = config.get('storage', 'connectionstring')
+mongodbname = config.get('storage', 'mongodbname')
+google_credentials = config.get("image-recognition", "google-credentials")
+google_project = config.get("image-recognition", "google-project")
+tags_backend = config.get("image-recognition", "backend")
 
 # initialize logger
 log_level_dict = {
@@ -40,7 +45,7 @@ logging.debug("logging started")
 logger = logging.getLogger(__name__)
 
 # initialize DBs
-currentdb = get_database()
+currentdb = pymongo.MongoClient(connectstring)[mongodbname]
 collection = currentdb[mongocollection]
 screenshotcollection = currentdb[mongoscreenshotcollection]
 videocollection = currentdb[mongovideocollection]

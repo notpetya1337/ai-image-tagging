@@ -19,7 +19,6 @@ from dependencies.fileops import (
     get_video_content,
     get_video_content_md5,
 )
-from dependencies.mongoclient import get_database
 from dependencies.vision import Tagging
 from dependencies.vision_video import VideoData
 
@@ -39,11 +38,16 @@ mongoscreenshotcollection = config.get("storage", "mongoscreenshotcollection")
 mongovideocollection = config.get("storage", "mongovideocollection")
 process_videos = config.getboolean("storage", "process_videos")
 process_images = config.getboolean("storage", "process_images")
-logging_level = config.get("logging", "loglevel")
+logging_level = config.get("logging", "loglevel")  # TODO: use this
 threads = config.getint("properties", "threads")
+connectstring = config.get('storage', 'connectionstring')
+mongodbname = config.get('storage', 'mongodbname')
+google_credentials = config.get("image-recognition", "google-credentials")
+google_project = config.get("image-recognition", "google-project")
+tags_backend = config.get("image-recognition", "backend")
 
 # initialize DBs
-currentdb = get_database()
+currentdb = pymongo.MongoClient(connectstring)[mongodbname]
 collection = currentdb[mongocollection]
 screenshotcollection = currentdb[mongoscreenshotcollection]
 videocollection = currentdb[mongovideocollection]
@@ -120,7 +124,7 @@ def create_imagedoc(
 def create_videodoc(
     video_content, video_content_md5, vidpath_array, relpath_array, subdiv
 ):
-    videoobj = VideoData()
+    videoobj = VideoData(google_credentials, google_project)
     videoobj.video_vision_all(video_content)
     mongo_entry = {
         "content_md5": video_content_md5,
@@ -248,11 +252,7 @@ def main():
                 else:
                     is_screenshot = 0
                     workingcollection = collection
-                pool.submit(
-                    process_image_folder(
-                        workingdir, workingcollection, is_screenshot, div
-                    )
-                )
+                pool.submit(process_image_folder(workingdir, workingcollection, is_screenshot, div))
             if process_videos:
                 pool.submit(process_video_folder(workingdir, div))
 

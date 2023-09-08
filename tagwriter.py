@@ -8,14 +8,7 @@ import exiftool
 import pymongo
 from bson.json_util import dumps, loads
 
-from dependencies.fileops import (
-    listdirs,
-    listimages,
-    listvideos,
-    get_image_md5,
-    get_video_content_md5,
-)
-from dependencies.mongoclient import get_database
+from dependencies.fileops import (get_image_md5, get_video_content_md5, listdirs, listimages, listvideos)
 from dependencies.vision import Tagging
 
 # initialize logger
@@ -36,6 +29,8 @@ config = ConfigParser()
 config.read("config.ini")
 subdiv = config.get("properties", "subdiv")
 rootdir = config.get("divs", subdiv)
+connectstring = config.get('storage', 'connectionstring')
+mongodbname = config.get('storage', 'mongodbname')
 mongocollection = config.get("storage", "mongocollection")
 mongoscreenshotcollection = config.get("storage", "mongoscreenshotcollection")
 mongovideocollection = config.get("storage", "mongovideocollection")
@@ -43,7 +38,7 @@ process_videos = config.getboolean("storage", "process_videos")
 process_images = config.getboolean("storage", "process_images")
 
 # initialize DBs
-currentdb = get_database()
+currentdb = pymongo.MongoClient(connectstring)[mongodbname]
 collection = currentdb[mongocollection]
 screenshotcollection = currentdb[mongoscreenshotcollection]
 videocollection = currentdb[mongovideocollection]

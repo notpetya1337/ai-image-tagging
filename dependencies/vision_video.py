@@ -1,4 +1,3 @@
-import io
 import logging
 import os
 from configparser import ConfigParser
@@ -8,24 +7,22 @@ from google.cloud import videointelligence
 # read config
 config = ConfigParser()
 config.read("config.ini")
-path = r"placeholder"
-google_credentials = config.get("image-recognition", "google-credentials")
-google_project = config.get("image-recognition", "google-project")
-tags_backend = config.get("image-recognition", "backend")
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_credentials
-os.environ["GOOGLE_CLOUD_PROJECT"] = google_project
+# path = r"placeholder"
 
 logger = logging.getLogger(__name__)
 
 
 class VideoData:
-    def __init__(self):
+    def __init__(self, google_credentials, google_project):
         self.text = []
         self.labels = []
         self.labels_category = []
         self.transcripts = []
         self.video_binary = []
         self.pornography = []
+
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_credentials
+        os.environ["GOOGLE_CLOUD_PROJECT"] = google_project
 
     def video_vision_all(self, video_binary):
         video_client = videointelligence.VideoIntelligenceServiceClient()
@@ -97,29 +94,29 @@ class VideoData:
         self.pornography = list(dict.fromkeys(self.pornography))
 
 
-subdiv = "placeholder"
-vid_md5 = "placeholder"
-relpath_array = "placeholder"
+# subdiv = "placeholder"
+# vid_md5 = "placeholder"
+# relpath_array = "placeholder"
 
 
-def main():
-    with io.open(path, "rb") as movie:
-        video_content = movie.read()
-    videoobj = VideoData()
-    videoobj.video_vision_all(video_content)
-    print(videoobj)
-    mongo_entry = {
-        "content_md5": vid_md5,
-        "vision_tags": videoobj.labels,
-        "vision_text": videoobj.text,
-        "vision_transcript": videoobj.transcripts,
-        "explicit_detection": videoobj.pornography,
-        "path": path,
-        "subdiv": subdiv,
-        "relativepath": relpath_array,
-    }
-    print(mongo_entry)
-
-
-if __name__ == "__main__":
-    main()
+# def main():
+#     with io.open(path, "rb") as movie:
+#         video_content = movie.read()
+#     videoobj = VideoData()
+#     videoobj.video_vision_all(video_content)
+#     print(videoobj)
+#     mongo_entry = {
+#         "content_md5": vid_md5,
+#         "vision_tags": videoobj.labels,
+#         "vision_text": videoobj.text,
+#         "vision_transcript": videoobj.transcripts,
+#         "explicit_detection": videoobj.pornography,
+#         "path": path,
+#         "subdiv": subdiv,
+#         "relativepath": relpath_array,
+#     }
+#     print(mongo_entry)
+#
+#
+# if __name__ == "__main__":
+#     main()

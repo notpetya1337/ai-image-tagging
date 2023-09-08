@@ -4,12 +4,12 @@ import threading
 import time
 from configparser import ConfigParser
 import os
+import pymongo
 
 import exiftool
 from watchdog.events import PatternMatchingEventHandler
 from watchdog.observers import Observer
 
-from dependencies.mongoclient import get_database
 from dependencies.fileops import get_image_md5
 from main_threaded import process_image, process_video
 from tagwriter_threaded import getimagetags, writeimagetags
@@ -21,11 +21,16 @@ config.read("config.ini")
 subdiv = config.get("properties", "subdiv")
 rootdir = config.get("divs", subdiv)
 subdivs = json.loads(config.get("properties", "subdivs"))
+connectstring = config.get('storage', 'connectionstring')
+mongodbname = config.get('storage', 'mongodbname')
 mongocollection = config.get("storage", "mongocollection")
 mongovideocollection = config.get("storage", "mongovideocollection")
+google_credentials = config.get("image-recognition", "google-credentials")
+google_project = config.get("image-recognition", "google-project")
+tags_backend = config.get("image-recognition", "backend")
 
 # initialize DBs
-currentdb = get_database()
+currentdb = pymongo.MongoClient(connectstring)[mongodbname]
 collection = currentdb[mongocollection]
 videocollection = currentdb[mongovideocollection]
 

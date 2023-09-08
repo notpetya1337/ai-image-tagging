@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 # noinspection PyUnusedLocal
 class Tagging:
     def __init__(self, config):
+        # TODO: move config out of here
         self.google_credentials = config.get('image-recognition', 'google-credentials')
         self.google_project = config.get('image-recognition', 'google-project')
         self.tags_backend = config.get('image-recognition', 'backend')
