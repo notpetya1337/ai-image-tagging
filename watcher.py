@@ -109,12 +109,12 @@ class Handler(PatternMatchingEventHandler):
             logger.info("Watchdog received moved event - %s moved to %s", event.src_path, event.dest_path)
             path = event.dest_path
             logger.info("Running command on %s", path)
-            if path.endswith(videoextensions) and not path.endswith("*_tmp"):
+            if path.endswith(videoextensions) and not event.src_path.endswith("*_tmp"):
                 time.sleep(5)
                 logger.info("Processing video %s", path)
                 t = threading.Thread(process_video(path, subdiv))
                 t.start()
-            elif path.endswith(imageextensions) and not path.endswith("*_tmp"):
+            elif path.endswith(imageextensions) and not event.src_path.endswith("*_tmp"):
                 time.sleep(5)
                 logger.info("Processing image %s", path)
                 t = threading.Thread(imagehandler(path, collection, subdiv, self.et))
