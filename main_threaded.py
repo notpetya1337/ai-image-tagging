@@ -60,7 +60,7 @@ videocollection.create_index("content_md5")
 videocollection.create_index("vision_tags")
 
 # Initialize variables
-tagging = Tagging(config)
+tagging = Tagging(google_credentials, google_project, tags_backend)
 imagecount = 0
 videocount = 0
 foldercount = 0

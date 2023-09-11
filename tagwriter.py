@@ -9,7 +9,6 @@ import pymongo
 from bson.json_util import dumps, loads
 
 from dependencies.fileops import (get_image_md5, get_video_content_md5, listdirs, listimages, listvideos)
-from dependencies.vision import Tagging
 
 # initialize logger
 logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
@@ -45,7 +44,6 @@ videocollection = currentdb[mongovideocollection]
 
 # define folder and image lists globally
 imagelist = []
-tagging = Tagging(config)
 allfolders = listdirs(rootdir)
 
 

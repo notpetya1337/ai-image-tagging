@@ -7,7 +7,6 @@ from google.cloud import videointelligence
 # read config
 config = ConfigParser()
 config.read("config.ini")
-# path = r"placeholder"
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +19,6 @@ class VideoData:
         self.transcripts = []
         self.video_binary = []
         self.pornography = []
-
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_credentials
         os.environ["GOOGLE_CLOUD_PROJECT"] = google_project
 
@@ -92,31 +90,3 @@ class VideoData:
             self.pornography.append("pornography: {}".format(likelihood.name))
         # remove duplicates
         self.pornography = list(dict.fromkeys(self.pornography))
-
-
-# subdiv = "placeholder"
-# vid_md5 = "placeholder"
-# relpath_array = "placeholder"
-
-
-# def main():
-#     with io.open(path, "rb") as movie:
-#         video_content = movie.read()
-#     videoobj = VideoData()
-#     videoobj.video_vision_all(video_content)
-#     print(videoobj)
-#     mongo_entry = {
-#         "content_md5": vid_md5,
-#         "vision_tags": videoobj.labels,
-#         "vision_text": videoobj.text,
-#         "vision_transcript": videoobj.transcripts,
-#         "explicit_detection": videoobj.pornography,
-#         "path": path,
-#         "subdiv": subdiv,
-#         "relativepath": relpath_array,
-#     }
-#     print(mongo_entry)
-#
-#
-# if __name__ == "__main__":
-#     main()

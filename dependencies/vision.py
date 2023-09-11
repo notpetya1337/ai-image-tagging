@@ -7,13 +7,11 @@ from google.cloud import vision
 logger = logging.getLogger(__name__)
 
 
-# noinspection PyUnusedLocal
 class Tagging:
-    def __init__(self, config):
-        # TODO: move config out of here
-        self.google_credentials = config.get('image-recognition', 'google-credentials')
-        self.google_project = config.get('image-recognition', 'google-project')
-        self.tags_backend = config.get('image-recognition', 'backend')
+    def __init__(self, google_credentials, google_project, tags_backend):
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_credentials
+        os.environ["GOOGLE_CLOUD_PROJECT"] = google_project
+        self.tags_backend = tags_backend
 
     def get_tags(self, image_binary):
         if self.tags_backend == 'google-vision':
@@ -68,8 +66,6 @@ class Tagging:
         return text
 
     def google_vision_light_ocr(self, image_binary):
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self.google_credentials
-        os.environ["GOOGLE_CLOUD_PROJECT"] = self.google_project
         client = vision.ImageAnnotatorClient()
         # Loads the image into memory
         image = vision.Image(content=image_binary)
@@ -86,9 +82,6 @@ class Tagging:
 
     # TODO: this doesn't work yet
     def google_vision_heavy_ocr(self, image_binary):
-
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self.google_credentials
-        os.environ["GOOGLE_CLOUD_PROJECT"] = self.google_project
         client = vision.ImageAnnotatorClient()
         # Loads the image into memory
         image = vision.Image(content=image_binary)
@@ -99,8 +92,6 @@ class Tagging:
         return returntext
 
     def google_vision_explicit_detection(self, image_binary):
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self.google_credentials
-        os.environ["GOOGLE_CLOUD_PROJECT"] = self.google_project
         client = vision.ImageAnnotatorClient()
         # Loads the image into memory
         image = vision.Image(content=image_binary)

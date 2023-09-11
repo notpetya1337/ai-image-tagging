@@ -37,6 +37,9 @@ mongoscreenshotcollection = config.get("storage", "mongoscreenshotcollection")
 mongovideocollection = config.get("storage", "mongovideocollection")
 process_videos = config.getboolean("storage", "process_videos")
 process_images = config.getboolean("storage", "process_images")
+google_credentials = config.get("image-recognition", "google-credentials")
+google_project = config.get("image-recognition", "google-project")
+tags_backend = config.get("image-recognition", "backend")
 
 # initialize DBs
 currentdb = pymongo.MongoClient(connectstring)[mongodbname]
@@ -54,7 +57,7 @@ videocollection.create_index("vision_tags")
 
 # define folder and image lists globally
 imagelist = []
-tagging = Tagging(config)
+tagging = Tagging(google_credentials, google_project, tags_backend)
 allfolders = listdirs(rootdir)
 
 # Names of likelihood from google.cloud.vision.enums
@@ -114,7 +117,7 @@ def create_mongoimageentry(
 def create_mongovideoentry(
     video_content, video_content_md5, vidpath_array, relpath_array
 ):
-    videoobj = VideoData()
+    videoobj = VideoData(google_credentials, google_project)
     videoobj.video_vision_all(video_content)
     mongo_entry = {
         "content_md5": video_content_md5,
@@ -135,11 +138,9 @@ def main():
     start_time = time.time()
     while True:
         if allfolders:
-            # TODO: launch threads for videos and images
             workingdir = allfolders.pop(0)
             workingimages = listimages(workingdir, process_images)
             workingvideos = listvideos(workingdir, process_videos)
-            ############################################################################################################
             for videopath in workingvideos:
                 videocount += 1
                 workingcollection = videocollection
@@ -153,35 +154,30 @@ def main():
                     )
                     is None
                 ):
+                    logger.info("Processing video %s", relpath)
+                    videopath_array = [videopath]
+                    video_content = get_video_content(videopath)
+                    relpath_array = [relpath]
+                    mongo_entry = create_mongovideoentry(
+                        video_content,
+                        video_content_md5,
+                        videopath_array,
+                        relpath_array,
+                    )
+                    logger.info("Generated MongoDB entry: %s", mongo_entry)
+                    # noinspection PyUnresolvedReferences
                     try:
-                        logger.info("Processing video %s", relpath)
-                        videopath_array = [videopath]
-                        video_content = get_video_content(videopath)
-                        relpath_array = [relpath]
-                        mongo_entry = create_mongovideoentry(
-                            video_content,
-                            video_content_md5,
-                            videopath_array,
-                            relpath_array,
-                        )
-                        logger.info("Generated MongoDB entry: %s", mongo_entry)
-                        # noinspection PyUnresolvedReferences
-                        try:
-                            workingcollection.insert_one(mongo_entry)
-                        except (
-                            pymongo.errors.ServerSelectionTimeoutError,
-                            pymongo.errors.AutoReconnect,
-                        ) as e:
-                            logger.warning("Connection error: %s", e)
-                            time.sleep(10)
-                        logger.info(
-                            "Added new entry in MongoDB for video %s \n", videopath
-                        )
-                        continue
-                    # TODO: make this catch a more specific error
-                    except OSError as e:
-                        logger.error("Network error %s processing %s", e, relpath)
-                        continue
+                        workingcollection.insert_one(mongo_entry)
+                    except (
+                        pymongo.errors.ServerSelectionTimeoutError,
+                        pymongo.errors.AutoReconnect,
+                    ) as e:
+                        logger.warning("Connection error: %s", e)
+                        time.sleep(10)
+                    logger.info(
+                        "Added new entry in MongoDB for video %s \n", videopath
+                    )
+                    continue
                 # if content MD5 is in MongoDB
                 else:
                     # if path is not in MongoDB
@@ -204,7 +200,6 @@ def main():
                     else:
                         logger.info("Video %s is in MongoDB", videopath)
                         continue
-            ############################################################################################################
             for imagepath in workingimages:
                 imagecount += 1
                 if subdiv.find("screenshots") != -1:

@@ -12,7 +12,6 @@ import pymongo
 from bson.json_util import dumps, loads
 
 from dependencies.fileops import (get_image_md5, get_video_content_md5, listdirs, listimages, listvideos)
-from dependencies.vision import Tagging
 
 # read config
 config = ConfigParser()
@@ -28,9 +27,6 @@ maxlength = config.getint("properties", "maxlength")
 threads = config.getint("properties", "threads")
 connectstring = config.get('storage', 'connectionstring')
 mongodbname = config.get('storage', 'mongodbname')
-google_credentials = config.get("image-recognition", "google-credentials")
-google_project = config.get("image-recognition", "google-project")
-tags_backend = config.get("image-recognition", "backend")
 
 # initialize logger
 log_level_dict = {
@@ -51,7 +47,6 @@ screenshotcollection = currentdb[mongoscreenshotcollection]
 videocollection = currentdb[mongovideocollection]
 
 # Initialize variables
-tagging = Tagging(config)
 imagecount = 0
 videocount = 0
 foldercount = 0
