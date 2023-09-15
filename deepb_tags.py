@@ -16,13 +16,13 @@ from dependencies.fileops import get_image_md5
 # read config
 config = ConfigParser()
 config.read("config.ini")
-subdivs = json.loads(config.get("properties", "subdivs"))
 mongocollection = config.get("storage", "mongocollection")
 connectstring = config.get('storage', 'connectionstring')
 mongodbname = config.get('storage', 'mongodbname')
 modelpath = config.get('deepb', 'model')
 tagfile = config.get('deepb', 'tagfile')
 threshold = config.getfloat('deepb', 'threshold')
+deepbdivs = json.loads(config.get('deepb', 'deepbdivs'))
 
 currentdb = pymongo.MongoClient(connectstring)[mongodbname]
 collection = currentdb[mongocollection]
@@ -100,5 +100,5 @@ class addAnimeTags:
 
 if __name__ == "__main__":
     addAnimeTags = addAnimeTags()
-    for div in subdivs:
+    for div in deepbdivs:
         addAnimeTags.process_dir(config.get("divs", div))
