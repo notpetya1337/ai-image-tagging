@@ -58,6 +58,7 @@ videocount_lock = threading.Lock()
 def getimagetags(md5, workingcollection, is_screenshot):
     text = loads(dumps(workingcollection.find_one({"md5": md5}, {"vision_text": 1, "_id": 0})))
     tagsjson = loads(dumps(workingcollection.find_one({"md5": md5}, {"vision_tags": 1, "_id": 0})))
+    deepbtags = loads(dumps(workingcollection.find_one({"md5": md5}, {"deepbtags": 1, "_id": 0})))
     if is_screenshot == 1:
         explicit_results = []
     else:
@@ -77,6 +78,7 @@ def getimagetags(md5, workingcollection, is_screenshot):
 
     if tagsjson:
         tagsjson["vision_tags"].extend(explicit_results)
+        tagsjson["vision_tags"].extend(deepbtags["deepbtags"])
         tags_list = tagsjson.get("vision_tags")
         logger.info("Tags are %s", tags_list)
     else:
@@ -86,7 +88,7 @@ def getimagetags(md5, workingcollection, is_screenshot):
         logger.info("Text is %s", text_list)
     else:
         text_list = []
-    return tags_list, text_list  # , booru
+    return tags_list, text_list
 
 
 def getvideotags(content_md5):
