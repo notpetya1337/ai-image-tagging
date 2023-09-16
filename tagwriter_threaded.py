@@ -77,8 +77,10 @@ def getimagetags(md5, workingcollection, is_screenshot):
             explicit_results = []
 
     if tagsjson:
-        tagsjson["vision_tags"].extend(explicit_results)
-        tagsjson["vision_tags"].extend(deepbtags["deepbtags"])
+        try: tagsjson["vision_tags"].extend(explicit_results)
+        except Exception: logger.warning("Explicit tags not found for %s", md5)
+        try: tagsjson["vision_tags"].extend(deepbtags["deepbtags"])
+        except Exception: logger.warning("DeepBooru tags not found for %s", md5)
         tags_list = tagsjson.get("vision_tags")
         logger.info("Tags are %s", tags_list)
     else:
