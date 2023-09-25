@@ -48,7 +48,7 @@ exit_event = threading.Event()
 
 
 def imagehandler(path, workingcollection, div, et):
-    process_image(path, is_screenshot=False, rootdir=None, subdiv=div, workingcollection=collection,)
+    process_image(path, is_screenshot=False, rootdir=None, subdiv=div, workingcollection=collection)
     md5 = get_image_md5(path)
     tags, text = getimagetags(md5, workingcollection, is_screenshot=False)
     writeimagetags(path, tags, text, et)
@@ -108,13 +108,12 @@ class Handler(PatternMatchingEventHandler):
             # Event is moved, you can process it now
             logger.info("Watchdog received moved event - %s moved to %s", event.src_path, event.dest_path)
             path = event.dest_path
-            logger.info("Running command on %s", path)
-            if path.endswith(videoextensions) and not event.src_path.endswith("*_tmp"):
+            if path.endswith(videoextensions) and not event.src_path.endswith("_tmp"):
                 time.sleep(5)
                 logger.info("Processing video %s", path)
                 t = threading.Thread(process_video(path, subdiv))
                 t.start()
-            elif path.endswith(imageextensions) and not event.src_path.endswith("*_tmp"):
+            elif path.endswith(imageextensions) and not event.src_path.endswith("_tmp"):
                 time.sleep(5)
                 logger.info("Processing image %s", path)
                 t = threading.Thread(imagehandler(path, collection, subdiv, self.et))

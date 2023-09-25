@@ -134,3 +134,4 @@ inspectionProfiles/
 imageupload/
 config.ini
 *.db
+/model/
