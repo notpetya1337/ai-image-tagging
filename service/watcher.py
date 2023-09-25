@@ -11,8 +11,8 @@ from watchdog.events import PatternMatchingEventHandler
 from watchdog.observers import Observer
 
 from dependencies.fileops import get_image_md5
-from main_threaded import process_image, process_video
-from tagwriter_threaded import getimagetags, writeimagetags
+from old.main_threaded import process_image, process_video
+from old.tagwriter_threaded import getimagetags, writeimagetags
 
 
 # read config

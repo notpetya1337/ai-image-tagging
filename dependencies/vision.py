@@ -11,7 +11,8 @@ class Tagging:
     def __init__(self, google_credentials, google_project, tags_backend):
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_credentials
         os.environ["GOOGLE_CLOUD_PROJECT"] = google_project
-        self.tags_backend = tags_backend
+        if tags_backend: self.tags_backend = tags_backend
+        else: self.tags_backend = 'google-vision'
 
     def get_tags(self, image_binary):
         if self.tags_backend == 'google-vision':
@@ -41,10 +42,7 @@ class Tagging:
             raise Exception("tags_backend must be a valid backend.")
         return ocrtext
 
-    @backoff.on_exception(backoff.expo, vision.Image)
     def google_vision_labels(self, image_binary):
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self.google_credentials
-        os.environ["GOOGLE_CLOUD_PROJECT"] = self.google_project
         client = vision.ImageAnnotatorClient()
         # Loads the image into memory
         image = vision.Image(content=image_binary)

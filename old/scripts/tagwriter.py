@@ -132,7 +132,7 @@ def main():
                             logger.warning("Connection error: %s", e)
                             time.sleep(10)
                         except KeyError as e:
-                            logger.warning("Explicit tags not found for %s", imagepath)
+                            logger.warning("Explicit tags not found for %s with error %s", imagepath, e)
                             detection_results = []
 
                 logger.info("Processing image %s", imagepath)
@@ -212,7 +212,7 @@ def main():
                         logger.warning("Connection error: %s", e)
                         time.sleep(10)
                     except KeyError as e:
-                        logger.warning("Explicit tags not found for %s", videopath)
+                        logger.warning("Explicit tags not found for %s with error %s", videopath, e)
                         detobj = []
                 tagsjson = loads(tags)
                 tagsjson["vision_tags"].extend(detobj)

@@ -91,6 +91,6 @@ def get_video_content_md5(video_path):
             md5 = "corrupt"
             logger.error("Exception getting MD5 for path %s with ffmpeg: %s", video_path, err, exc_info=True)
     except Exception as e:
-        logger.error("Unhandled exception getting MD5 for path %s with ffmpeg: %s", video_path, exc_info=True)
+        logger.error("Unhandled exception getting MD5 for path %s with ffmpeg: %s", video_path, e, exc_info=True)
         md5 = "corrupt"
     return md5

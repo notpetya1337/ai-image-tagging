@@ -8,3 +8,7 @@ google-cloud-videointelligence
 moviepy
 backoff
 watchdog
+redis
+numpy
+tensorflow
+sdnotify
