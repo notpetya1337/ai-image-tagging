@@ -1,7 +1,6 @@
 import logging
 import os
 
-import backoff
 from google.cloud import vision
 
 logger = logging.getLogger(__name__)

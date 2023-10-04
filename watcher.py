@@ -1,38 +1,25 @@
-import json
 import logging
+import os
 import threading
 import time
-from configparser import ConfigParser
-import os
-import pymongo
 
 import exiftool
+import pymongo
 from watchdog.events import PatternMatchingEventHandler
 from watchdog.observers import Observer
 
+from dependencies.configops import MainConfig
 from dependencies.fileops import get_image_md5
 from old.main_threaded import process_image, process_video
 from old.tagwriter_threaded import getimagetags, writeimagetags
 
-
 # read config
-config = ConfigParser()
-config.read("config.ini")
-subdiv = config.get("properties", "subdiv")
-rootdir = config.get("divs", subdiv)
-subdivs = json.loads(config.get("properties", "subdivs"))
-connectstring = config.get('storage', 'connectionstring')
-mongodbname = config.get('storage', 'mongodbname')
-mongocollection = config.get("storage", "mongocollection")
-mongovideocollection = config.get("storage", "mongovideocollection")
-google_credentials = config.get("image-recognition", "google-credentials")
-google_project = config.get("image-recognition", "google-project")
-tags_backend = config.get("image-recognition", "backend")
+config = MainConfig()
 
 # initialize DBs
-currentdb = pymongo.MongoClient(connectstring)[mongodbname]
-collection = currentdb[mongocollection]
-videocollection = currentdb[mongovideocollection]
+currentdb = pymongo.MongoClient(config.connectstring)[config.mongodbname]
+collection = currentdb[config.mongocollection]
+videocollection = currentdb[config.mongovideocollection]
 
 # initialize logger
 logging.basicConfig(level=logging.INFO)
@@ -48,7 +35,13 @@ exit_event = threading.Event()
 
 
 def imagehandler(path, workingcollection, div, et):
-    process_image(path, is_screenshot=False, rootdir=None, subdiv=div, workingcollection=collection)
+    process_image(
+        path,
+        is_screenshot=False,
+        rootdir=None,
+        subdiv=div,
+        workingcollection=collection,
+    )
     md5 = get_image_md5(path)
     tags, text = getimagetags(md5, workingcollection, is_screenshot=False)
     writeimagetags(path, tags, text, et)
@@ -60,7 +53,9 @@ class OnMyWatch:
         self.folder = targetfolder
         self.div = div
         self.observer = Observer()
-        self.et = exiftool.ExifToolHelper(logger=logging.getLogger(__name__).setLevel(logging.INFO), encoding="utf-8")
+        self.et = exiftool.ExifToolHelper(
+            logger=logging.getLogger(__name__).setLevel(logging.INFO), encoding="utf-8"
+        )
 
     def run(self):
         event_handler = Handler(self.div, self.et)
@@ -106,29 +101,34 @@ class Handler(PatternMatchingEventHandler):
             logger.info("Watchdog received modified event - %s", event.src_path)
         elif event.event_type == "moved":
             # Event is moved, you can process it now
-            logger.info("Watchdog received moved event - %s moved to %s", event.src_path, event.dest_path)
+            logger.info(
+                "Watchdog received moved event - %s moved to %s",
+                event.src_path,
+                event.dest_path,
+            )
             path = event.dest_path
             if path.endswith(videoextensions) and not event.src_path.endswith("_tmp"):
                 time.sleep(5)
                 logger.info("Processing video %s", path)
-                t = threading.Thread(process_video(path, subdiv))
+                t = threading.Thread(process_video(path, self.div))
                 t.start()
             elif path.endswith(imageextensions) and not event.src_path.endswith("_tmp"):
                 time.sleep(5)
                 logger.info("Processing image %s", path)
-                t = threading.Thread(imagehandler(path, collection, subdiv, self.et))
+                t = threading.Thread(imagehandler(path, collection, self.div, self.et))
                 t.start()
         # else:
         #     print("Event type is ", event.event_type)
 
 
 if __name__ == "__main__":
-    logger.info("Watching %s", subdivs)
-    for i in subdivs:
-        folder = config.get("divs", i)
+    logger.info("Watching %s", config.subdivs)
+    for i in config.subdivs:
+        folder = config.getdiv(i)
         threading.Thread(target=OnMyWatch(folder, i).run).start()
-    if os.name == 'posix':
+    if os.name == "posix":
         import sdnotify
+
         n = sdnotify.SystemdNotifier()
         n.notify("READY=1")
     # Wait until all threads exit
