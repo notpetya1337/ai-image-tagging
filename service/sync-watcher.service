@@ -1,5 +1,4 @@
 [Unit]
-# Human readable name of the unit
 Description=Filesystem Watcher service
 After=multi-user.target
 [Service]
@@ -9,5 +8,6 @@ Restart=always
 WorkingDirectory=/usr/local/lib/ai-image-tagging/
 ExecStart=/usr/local/lib/ai-image-tagging/venv/bin/python3 /usr/local/lib/ai-image-tagging/watcher.py
 Environment=PYTHONUNBUFFERED=1
+RuntimeMaxSec=6h
 [Install]
 WantedBy=multi-user.target

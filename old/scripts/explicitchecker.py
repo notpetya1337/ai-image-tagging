@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 # read config
 config = ConfigParser()
-config.read("config.ini")
+config.read(r"..\config.ini")
 subdiv = config.get("properties", "subdiv")
 rootdir = config.get("divs", subdiv)
 connectstring = config.get('storage', 'connectionstring')
@@ -30,6 +30,9 @@ mongoscreenshotcollection = config.get("storage", "mongoscreenshotcollection")
 mongovideocollection = config.get("storage", "mongovideocollection")
 process_videos = config.getboolean("storage", "process_videos")
 process_images = config.getboolean("storage", "process_images")
+google_credentials = config.get("image-recognition", "google-credentials")
+google_project = config.get("image-recognition", "google-project")
+tags_backend = config.get("image-recognition", "backend")
 
 # initialize DBs
 currentdb = pymongo.MongoClient(connectstring)[mongodbname]
@@ -47,7 +50,7 @@ videocollection.create_index("vision_tags")
 
 # define folder and image lists globally
 imagelist = []
-tagging = Tagging(config)
+tagging = Tagging(google_credentials, google_project, tags_backend)
 allfolders = listdirs(rootdir)
 
 # Names of likelihood from google.cloud.vision.enums
@@ -108,6 +111,7 @@ def main():
                                 }
                             },
                         )
+                        print(imagecount, " images updated", end="\r")
                     except (
                         pymongo.errors.ServerSelectionTimeoutError,
                         pymongo.errors.AutoReconnect,
@@ -126,6 +130,7 @@ def main():
                 workingcollection = videocollection
                 video_content_md5 = str(get_video_content_md5(videopath))
                 relpath = os.path.relpath(videopath, rootdir)
+                print(" ")
                 # if MD5 is in MongoDB and explicit tags aren't:
                 if workingcollection.find_one(
                     {
@@ -139,7 +144,7 @@ def main():
                     try:
                         logger.info("Processing video %s", relpath)
                         video_content = get_video_content(videopath)
-                        videoobj = VideoData()
+                        videoobj = VideoData(google_credentials, google_project)
                         videoobj.video_vision_explicit(video_content)
                         workingcollection.update_one(
                             {"content_md5": video_content_md5},
@@ -154,6 +159,7 @@ def main():
                     logger.info(
                         "Added explicit tags in MongoDB for video %s \n", videopath
                     )
+                    print(videocount, " videos updated", end="\r")
         else:
             elapsed_time = time.time() - start_time
             final_time = str(datetime.timedelta(seconds=elapsed_time))

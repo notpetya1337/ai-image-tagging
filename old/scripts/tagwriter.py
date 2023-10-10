@@ -8,7 +8,7 @@ import exiftool
 import pymongo
 from bson.json_util import dumps, loads
 
-from dependencies.fileops import (get_image_md5, get_video_content_md5, listdirs, listimages, listvideos)
+from dependencies.fileops import (get_image_md5, get_video_content_md5, listdirs, listimages, listvideos, )
 
 # initialize logger
 logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
@@ -17,7 +17,7 @@ logging.debug("logging started")
 logger = logging.getLogger(__name__)
 
 config = ConfigParser()
-config.read("config.ini")
+config.read("../../config.ini")
 
 # Tags go to Subject, comma separated
 # Text goes to Description for now
@@ -25,16 +25,16 @@ config.read("config.ini")
 
 # read config
 config = ConfigParser()
-config.read("config.ini")
+config.read("../../config.ini")
 subdiv = config.get("properties", "subdiv")
 rootdir = config.get("divs", subdiv)
-connectstring = config.get('storage', 'connectionstring')
-mongodbname = config.get('storage', 'mongodbname')
+connectstring = config.get("storage", "connectionstring")
+mongodbname = config.get("storage", "mongodbname")
 mongocollection = config.get("storage", "mongocollection")
 mongoscreenshotcollection = config.get("storage", "mongoscreenshotcollection")
 mongovideocollection = config.get("storage", "mongovideocollection")
-process_videos = config.getboolean("storage", "process_videos")
-process_images = config.getboolean("storage", "process_images")
+process_videos = config.getboolean("flags", "process_videos")
+process_images = config.getboolean("flags", "process_images")
 
 # initialize DBs
 currentdb = pymongo.MongoClient(connectstring)[mongodbname]
@@ -132,7 +132,11 @@ def main():
                             logger.warning("Connection error: %s", e)
                             time.sleep(10)
                         except KeyError as e:
-                            logger.warning("Explicit tags not found for %s with error %s", imagepath, e)
+                            logger.warning(
+                                "Explicit tags not found for %s with error %s",
+                                imagepath,
+                                e,
+                            )
                             detection_results = []
 
                 logger.info("Processing image %s", imagepath)
@@ -152,7 +156,7 @@ def main():
                             logger.warning('Error: "%s " while writing tags', e)
 
                 if text:
-                    text_list = text.get("vision_text").replace("\n", "\\n")
+                    text_list = str(text.get("vision_text")).replace("\\n", " ")
                     logger.info("Text is %s", text_list)
                     if text_list:
                         try:
@@ -212,7 +216,9 @@ def main():
                         logger.warning("Connection error: %s", e)
                         time.sleep(10)
                     except KeyError as e:
-                        logger.warning("Explicit tags not found for %s with error %s", videopath, e)
+                        logger.warning(
+                            "Explicit tags not found for %s with error %s", videopath, e
+                        )
                         detobj = []
                 tagsjson = loads(tags)
                 tagsjson["vision_tags"].extend(detobj)

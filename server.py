@@ -157,6 +157,7 @@ def create_imagedoc(image_content, im_md5, image_array, is_screenshot, subdiv, m
 
 def process_video(videopath, workingcollection, subdiv, models, rootdir=""):
     video_content_md5 = str(get_video_content_md5(videopath))
+    # TODO: update to check explicit_detection
     entry = videocollection.find_one(
         {"content_md5": video_content_md5},
         {
@@ -164,7 +165,6 @@ def process_video(videopath, workingcollection, subdiv, models, rootdir=""):
             "vision_tags": 1,
             "vision_text": 1,
             "vision_transcript": 1,
-            "deepbtags": 1,
             "explicit_detection": 1,
         },
     )
@@ -179,7 +179,7 @@ def process_video(videopath, workingcollection, subdiv, models, rootdir=""):
         workingcollection.insert_one(mongo_entry)
         logger.info("Added new entry in MongoDB for video %s \n", videopath)
     else:
-        logger.info("MongoDB entry for video %s already exists \n", videopath)
+        logger.info("MongoDB entry for video %s already exists: %s \n", videopath, entry)
 
 
 def create_videodoc(
@@ -213,7 +213,7 @@ while True:
                 job["is_screenshot"],
                 job["models"],
             )
-        elif job['models'] is not None:process_image(
+        elif job['models'] is not None: process_image(
                 job["path"],
                 collection,
                 job["subdiv"],

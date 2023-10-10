@@ -2,9 +2,10 @@ import logging
 import os
 import sys
 from configparser import ConfigParser
+
 import pymongo
 
-from dependencies.fileops import listdirs, get_image_md5, get_video_content_md5
+from dependencies.fileops import get_image_md5, get_video_content_md5, listdirs
 from dependencies.vision import Tagging
 
 # initialize logger

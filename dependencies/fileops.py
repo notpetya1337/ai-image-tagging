@@ -10,7 +10,7 @@ from PIL import Image
 
 # initialize logger
 logging.basicConfig(stream=sys.stderr, level=logging.WARNING)
-logging.getLogger('PIL').setLevel(logging.ERROR)
+logging.getLogger("PIL").setLevel(logging.ERROR)
 logging.debug("logging started")
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 def listdirs(folder):
     internallist = [folder]
     for root, directories, files in os.walk(folder, topdown=True):
-        directories[:] = [d for d in directories if not d[0] == '.']
+        directories[:] = [d for d in directories if not d[0] == "."]
         for directory in directories:
             internallist.append(os.path.join(root, directory))
     return internallist
@@ -54,13 +54,13 @@ def listvideos(subfolder, process_videos):
 
 # open an image at a given path
 def get_image_content(image_path):
-    with io.open(image_path, 'rb') as image:
+    with io.open(image_path, "rb") as image:
         return image.read()
 
 
 # open a video at a given path
 def get_video_content(video_path):
-    with io.open(video_path, 'rb') as video:
+    with io.open(video_path, "rb") as video:
         return video.read()
 
 
@@ -76,12 +76,22 @@ def get_image_md5(image_path):
 
 def get_video_content_md5(video_path):
     try:
-        if os.name == 'nt':
-            process = subprocess.Popen('cmd /c ffmpeg.exe -i "{vpath}" -map 0:v -f md5 -'.format(vpath=video_path),
-                                       shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if os.name == "nt":
+            process = subprocess.Popen(
+                'cmd /c ffmpeg.exe -i "{vpath}" -map 0:v -f md5 -'.format(
+                    vpath=video_path
+                ),
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
         else:
-            process = subprocess.Popen('ffmpeg -i "{vpath}" -map 0:v -f md5 -'.format(vpath=video_path),
-                                       shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            process = subprocess.Popen(
+                'ffmpeg -i "{vpath}" -map 0:v -f md5 -'.format(vpath=video_path),
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
         out, err = process.communicate()
         md5list = re.findall(r"MD5=([a-fA-F\d]{32})", str(out))
         logger.info("Got content MD5 for video %s: %s", video_path, md5list)
@@ -89,8 +99,18 @@ def get_video_content_md5(video_path):
             md5 = md5list[0]
         except IndexError:
             md5 = "corrupt"
-            logger.error("Exception getting MD5 for path %s with ffmpeg: %s", video_path, err, exc_info=True)
+            logger.error(
+                "Exception getting MD5 for path %s with ffmpeg: %s",
+                video_path,
+                err,
+                exc_info=True,
+            )
     except Exception as e:
-        logger.error("Unhandled exception getting MD5 for path %s with ffmpeg: %s", video_path, e, exc_info=True)
+        logger.error(
+            "Unhandled exception getting MD5 for path %s with ffmpeg: %s",
+            video_path,
+            e,
+            exc_info=True,
+        )
         md5 = "corrupt"
     return md5

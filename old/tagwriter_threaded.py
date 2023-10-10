@@ -15,13 +15,13 @@ from dependencies.fileops import (get_image_md5, get_video_content_md5, listdirs
 
 # read config
 config = ConfigParser()
-config.read("config.ini")
+config.read("../config.ini")
 subdivs = json.loads(config.get("properties", "subdivs"))
 mongocollection = config.get("storage", "mongocollection")
 mongoscreenshotcollection = config.get("storage", "mongoscreenshotcollection")
 mongovideocollection = config.get("storage", "mongovideocollection")
-process_videos = config.getboolean("storage", "process_videos")
-process_images = config.getboolean("storage", "process_images")
+process_videos = config.getboolean("flags", "process_videos")
+process_images = config.getboolean("flags", "process_images")
 logging_level = config.get("logging", "loglevel")
 maxlength = config.getint("properties", "maxlength")
 threads = config.getint("properties", "threads")
@@ -65,7 +65,7 @@ def getimagetags(md5, workingcollection, is_screenshot):
         explicit_mongo = workingcollection.find_one({"md5": md5}, {"explicit_detection": 1, "_id": 0})
         if explicit_mongo:
             detobj = explicit_mongo["explicit_detection"]
-            detobj = detobj[0]
+            # detobj = detobj[0]
             explicit_results = (
                 f"Adult: {detobj['adult']}",
                 f"Medical: {detobj['medical']}",
@@ -86,7 +86,7 @@ def getimagetags(md5, workingcollection, is_screenshot):
     else:
         tags_list = []
     if text:
-        text_list = text.get("vision_text").replace("\n", "\\n")
+        text_list = str(text.get("vision_text")).replace("\\n", " ")
         logger.info("Text is %s", text_list)
     else:
         text_list = []
@@ -195,13 +195,18 @@ def main():
                     logger=logging.getLogger(__name__).setLevel(logging.INFO),
                     encoding="utf-8",
                 )
-                pool.submit(processimagefolder(workingdir, workingcollection, is_screenshot, et))
+                t = threading.Thread(target=processimagefolder, args=[workingdir, workingcollection,
+                                                                            is_screenshot, et])
+                t.start()
+                # pool.submit(processimagefolder(workingdir, workingcollection, is_screenshot, et))
             if process_videos:
                 et = exiftool.ExifToolHelper(
                     logger=logging.getLogger(__name__).setLevel(logging.INFO),
                     encoding="utf-8",
                 )
-                pool.submit(processvideofolder(workingdir, et))
+                t = threading.Thread(target=processvideofolder, args=[workingdir, et])
+                t.start()
+                # pool.submit(processvideofolder(workingdir, et))
     pool.shutdown(wait=True)
     et.terminate()
     elapsed_time = time.time() - start_time

@@ -7,15 +7,8 @@ from configparser import ConfigParser
 
 import pymongo
 
-from dependencies.fileops import (
-    listdirs,
-    listimages,
-    listvideos,
-    get_image_md5,
-    get_image_content,
-    get_video_content,
-    get_video_content_md5,
-)
+from dependencies.fileops import (get_image_content, get_image_md5, get_video_content, get_video_content_md5, listdirs,
+                                  listimages, listvideos)
 from dependencies.vision import Tagging
 from dependencies.vision_video import VideoData
 
@@ -27,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 # read config
 config = ConfigParser()
-config.read("config.ini")
+config.read("../../config.ini")
 subdiv = config.get("properties", "subdiv")
 rootdir = config.get("divs", subdiv)
 connectstring = config.get('storage', 'connectionstring')
@@ -35,8 +28,8 @@ mongodbname = config.get('storage', 'mongodbname')
 mongocollection = config.get("storage", "mongocollection")
 mongoscreenshotcollection = config.get("storage", "mongoscreenshotcollection")
 mongovideocollection = config.get("storage", "mongovideocollection")
-process_videos = config.getboolean("storage", "process_videos")
-process_images = config.getboolean("storage", "process_images")
+process_videos = config.getboolean("flags", "process_videos")
+process_images = config.getboolean("flags", "process_images")
 google_credentials = config.get("image-recognition", "google-credentials")
 google_project = config.get("image-recognition", "google-project")
 tags_backend = config.get("image-recognition", "backend")
